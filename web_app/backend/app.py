@@ -1,0 +1,92 @@
+"""
+Serveur Flask pour l'API de transformation des déchetteries
+"""
+
+from flask import Flask, jsonify
+from flask_cors import CORS
+import os
+import sys
+
+# Ajouter le chemin pour les imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from api.transform import api_bp
+
+def create_app():
+    """Crée et configure l'application Flask"""
+    app = Flask(__name__)
+    
+    # Configuration
+    app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB max
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'temp')
+    
+    # Créer le dossier d'upload s'il n'existe pas
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Activer CORS pour React (développement)
+    CORS(app, origins=['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'])
+    
+    # Enregistrer les blueprints
+    app.register_blueprint(api_bp, url_prefix='/api')
+    
+    # Route de base
+    @app.route('/')
+    def index():
+        return jsonify({
+            'name': 'API Transformation Déchetteries',
+            'version': '1.0.0',
+            'status': 'running',
+            'endpoints': {
+                'status': '/api/status',
+                'transform': '/api/transform (POST)',
+                'download': '/api/download/<filename> (GET)'
+            }
+        })
+    
+    # Gestion des erreurs
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({
+            'success': False,
+            'message': 'Endpoint non trouvé',
+            'error': 'La route demandée n\'existe pas'
+        }), 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        return jsonify({
+            'success': False,
+            'message': 'Erreur interne du serveur',
+            'error': str(error) if app.debug else 'Une erreur s\'est produite'
+        }), 500
+    
+    @app.errorhandler(413)
+    def request_entity_too_large(error):
+        return jsonify({
+            'success': False,
+            'message': 'Fichier trop volumineux',
+            'error': 'La taille maximale du fichier est de 100 MB'
+        }), 413
+    
+    return app
+
+
+if __name__ == '__main__':
+    app = create_app()
+    
+    # Port par défaut
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    print(f"=" * 70)
+    print(f"  Serveur API Transformation Déchetteries")
+    print(f"=" * 70)
+    print(f"  Serveur démarré sur http://localhost:{port}")
+    print(f"  Mode debug: {debug}")
+    print(f"  Endpoints disponibles:")
+    print(f"    - GET  /api/status")
+    print(f"    - POST /api/transform")
+    print(f"    - GET  /api/download/<filename>")
+    print(f"=" * 70)
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)

@@ -1,10 +1,9 @@
 """
 Service de transformation qui réutilise la logique existante
-Wrapper autour de transform_t2_to_collectes pour l'API
+Wrapper autour de transform_collectes pour l'API
 """
 
 import sys
-import os
 from pathlib import Path
 import tempfile
 import shutil
@@ -19,7 +18,7 @@ project_root = None
 # Structure attendue: _DECHETTERIES/web_app/backend/services/transform_service.py
 potential_root = current_file.parent.parent.parent.parent
 potential_scripts = potential_root / 'scripts'
-if potential_scripts.exists() and (potential_scripts / 'transform_t2_to_collectes.py').exists():
+if potential_scripts.exists() and (potential_scripts / 'transform_collectes.py').exists():
     scripts_dir = potential_scripts
     project_root = potential_root
 
@@ -32,7 +31,7 @@ if scripts_dir is None:
         current = cwd
         while current != current.parent:
             potential = current.parent / 'scripts'
-            if potential.exists() and (potential / 'transform_t2_to_collectes.py').exists():
+            if potential.exists() and (potential / 'transform_collectes.py').exists():
                 scripts_dir = potential
                 project_root = current.parent
                 break
@@ -40,7 +39,7 @@ if scripts_dir is None:
     else:
         # On est peut-être déjà à la racine
         potential = cwd / 'scripts'
-        if potential.exists() and (potential / 'transform_t2_to_collectes.py').exists():
+        if potential.exists() and (potential / 'transform_collectes.py').exists():
             scripts_dir = potential
             project_root = cwd
 
@@ -49,7 +48,7 @@ if scripts_dir is None:
     cwd = Path.cwd()
     for parent in [cwd] + list(cwd.parents):
         potential = parent / 'scripts'
-        if potential.exists() and (potential / 'transform_t2_to_collectes.py').exists():
+        if potential.exists() and (potential / 'transform_collectes.py').exists():
             scripts_dir = potential
             project_root = parent
             break
@@ -63,11 +62,11 @@ if scripts_dir is None or not scripts_dir.exists():
         f"Cherché dans : {potential_root}, {Path.cwd()}, et parents"
     )
 
-# Vérifier que le fichier transform_t2_to_collectes.py existe
-transform_file = scripts_dir / 'transform_t2_to_collectes.py'
+# Vérifier que le fichier transform_collectes.py existe
+transform_file = scripts_dir / 'transform_collectes.py'
 if not transform_file.exists():
     raise ImportError(
-        f"Fichier transform_t2_to_collectes.py introuvable dans {scripts_dir}"
+        f"Fichier transform_collectes.py introuvable dans {scripts_dir}"
     )
 
 # Ajouter le dossier scripts au path Python
@@ -75,12 +74,37 @@ if str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
 
 try:
-    from transform_t2_to_collectes import transform_t2_to_collectes
+    from transform_collectes import transform_to_collectes
 except ImportError as e:
     raise ImportError(
-        f"Impossible d'importer transform_t2_to_collectes depuis {scripts_dir} : {e}\n"
-        f"Vérifiez que le fichier {transform_file} existe et est valide."
+        f"Impossible d'importer le module de transformation depuis {scripts_dir} : {e}\n"
+        f"Vérifiez que le fichier transform_collectes.py existe et est valide."
     )
+
+
+def _get_project_paths():
+    """Helper function to get project root, input, and output directories"""
+    current_file = Path(__file__).resolve()
+    project_root = current_file.parent.parent.parent.parent
+    
+    # Si pas trouvé, essayer depuis le répertoire de travail
+    if not (project_root / 'output').exists():
+        cwd = Path.cwd()
+        if 'web_app' in str(cwd):
+            current = cwd
+            while current != current.parent:
+                if (current.parent / 'output').exists() or current.parent.name == '_DECHETTERIES':
+                    project_root = current.parent
+                    break
+                current = current.parent
+        else:
+            project_root = cwd
+    
+    input_dir = project_root / 'input'
+    output_dir = project_root / 'output'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    return project_root, input_dir, output_dir
 
 
 def transform_excel_file(uploaded_file, output_filename=None):
@@ -109,39 +133,35 @@ def transform_excel_file(uploaded_file, output_filename=None):
         input_path = temp_dir / uploaded_file.filename
         uploaded_file.save(str(input_path))
         
-        # Trouver le dossier output à la racine du projet
-        # Structure: _DECHETTERIES/web_app/backend/services/transform_service.py
-        # On remonte jusqu'à _DECHETTERIES
-        current_file = Path(__file__).resolve()
-        project_root = current_file.parent.parent.parent.parent
-        output_dir = project_root / 'output'
+        # Trouver les dossiers du projet
+        project_root, input_dir, output_dir = _get_project_paths()
         
-        # Si pas trouvé, essayer depuis le répertoire de travail
-        if not output_dir.exists():
-            cwd = Path.cwd()
-            # Si on est dans web_app/backend, remonter à la racine
-            if 'web_app' in str(cwd):
-                current = cwd
-                while current != current.parent:
-                    potential = current.parent / 'output'
-                    if potential.exists() or current.parent.name == '_DECHETTERIES':
-                        output_dir = potential
-                        break
-                    current = current.parent
-            else:
-                output_dir = cwd / 'output'
+        # Copier le fichier uploadé dans le dossier input pour traitement ultérieur
+        # Cela permet de détecter T1 et T2 pour la génération annuelle
+        try:
+            input_dir.mkdir(parents=True, exist_ok=True)
+            permanent_input_path = input_dir / uploaded_file.filename
+            shutil.copy2(str(input_path), str(permanent_input_path))
+        except Exception as e:
+            # Si la copie échoue, continuer quand même avec le fichier temporaire
+            print(f"Warning: Could not copy file to input directory: {e}")
         
-        # Créer le dossier output s'il n'existe pas
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Définir le chemin de sortie
+        # Déterminer le nom du fichier de sortie basé sur le nom du fichier d'entrée
         if output_filename is None:
-            output_filename = "COLLECTES DECHETERIES T2 2025.xlsx"
+            # Détecter si c'est T1 ou T2 basé sur le nom du fichier
+            input_filename_upper = uploaded_file.filename.upper()
+            if 'T1' in input_filename_upper:
+                output_filename = "COLLECTES DECHETERIES T1 2025.xlsx"
+            elif 'T2' in input_filename_upper:
+                output_filename = "COLLECTES DECHETERIES T2 2025.xlsx"
+            else:
+                # Par défaut, utiliser T2
+                output_filename = "COLLECTES DECHETERIES T2 2025.xlsx"
         
         output_path = output_dir / output_filename
         
         # Appeler la fonction de transformation existante
-        result = transform_t2_to_collectes(
+        result = transform_to_collectes(
             str(input_path),
             str(output_path),
             dechetterie_filter=None,
@@ -150,8 +170,6 @@ def transform_excel_file(uploaded_file, output_filename=None):
         
         # Vérifier que le fichier de sortie existe et n'est pas vide
         if output_path.exists() and output_path.stat().st_size > 0:
-            # Retourner le chemin relatif depuis la racine du projet pour l'API
-            # L'API pourra chercher dans output/ ou utiliser le chemin complet
             return {
                 'success': True,
                 'output_path': str(output_path),

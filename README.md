@@ -7,7 +7,9 @@ Cet outil transforme automatiquement les données détaillées des déchetteries
 ```
 _DECHETTERIES/
 ├── scripts/                    # OUTILS EXISTANTS (CLI et GUI tkinter)
-│   ├── transform_t2_to_collectes.py  # Script principal (ligne de commande)
+│   ├── transform_collectes.py       # Script principal (utilisé par l'API)
+│   ├── transform_t1_collectes.py    # Script standalone T1
+│   ├── transform_t2_collectes.py    # Script standalone T2
 │   ├── gui_app.py                    # Interface graphique tkinter
 │   └── build/                        # Fichiers de compilation
 │       ├── build_exe.bat             # Script de compilation Windows
@@ -164,7 +166,7 @@ pip install pandas openpyxl
 Ouvrez un terminal dans le dossier du projet et tapez simplement :
 
 ```bash
-python scripts/transform_t2_to_collectes.py
+python scripts/transform_collectes.py
 ```
 
 C'est tout ! Le script va :
@@ -231,7 +233,7 @@ Si vous souhaitez créer un fichier `.exe` que vous pouvez distribuer sans avoir
 
 2. **Vérifier que tous les scripts sont présents** :
    - `scripts/gui_app.py` (interface graphique)
-   - `scripts/transform_t2_to_collectes.py` (script de transformation)
+   - `scripts/transform_collectes.py` (script principal de transformation)
    - `scripts/build/build_exe.bat` (script de compilation)
    - `scripts/build/build_exe.spec` (configuration PyInstaller)
 
@@ -334,7 +336,7 @@ Vous pouvez maintenant distribuer le fichier `TransformationDechetteries.exe` :
 ### Personnaliser le nom du fichier de sortie (ligne de commande)
 
 ```bash
-python scripts/transform_t2_to_collectes.py mon_fichier.xlsx
+python scripts/transform_collectes.py mon_fichier.xlsx
 ```
 
 Le fichier sera créé dans le dossier `output/` avec le nom que vous avez choisi.
@@ -342,7 +344,7 @@ Le fichier sera créé dans le dossier `output/` avec le nom que vous avez chois
 ### Obtenir de l'aide (ligne de commande)
 
 ```bash
-python scripts/transform_t2_to_collectes.py --help
+python scripts/transform_collectes.py --help
 ```
 
 ## ⚠️ Résolution de Problèmes
@@ -367,8 +369,8 @@ pip install pandas openpyxl
 
 **Solutions :**
 1. Vérifiez que Python est installé : `python --version`
-2. Essayez `py` au lieu de `python` : `py scripts/transform_t2_to_collectes.py`
-3. Sur Mac/Linux, essayez `python3` : `python3 scripts/transform_t2_to_collectes.py`
+2. Essayez `py` au lieu de `python` : `py scripts/transform_collectes.py`
+3. Sur Mac/Linux, essayez `python3` : `python3 scripts/transform_collectes.py`
 
 ### Le fichier de sortie est vide ou incorrect
 
@@ -414,7 +416,7 @@ Si vous rencontrez un problème :
 
 1. **Lisez la section "Résolution de Problèmes" ci-dessus**
 2. **Vérifiez les messages d'erreur** dans le terminal
-3. **Utilisez l'option d'aide** : `python scripts/transform_t2_to_collectes.py --help`
+3. **Utilisez l'option d'aide** : `python scripts/transform_collectes.py --help`
 
 ## 📌 Notes Importantes
 
@@ -457,7 +459,7 @@ python scripts/gui_app.py
 # 2. Ouvrez un terminal dans le dossier du projet
 
 # 3. Lancez le script
-python scripts/transform_t2_to_collectes.py
+python scripts/transform_collectes.py
 
 # 4. Attendez le message "SUCCÈS !"
 #    Le script affichera le nom du fichier et de la feuille utilisés

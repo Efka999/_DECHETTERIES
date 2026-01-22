@@ -91,11 +91,39 @@ export const downloadFile = (filename, filePath = null) => {
  */
 export const getStats = async (filename) => {
   try {
-    const response = await api.get(`/stats/${encodeURIComponent(filename)}`);
+    // Encoder le nom de fichier pour l'URL (les espaces deviennent %20)
+    const encodedFilename = encodeURIComponent(filename);
+    const response = await api.get(`/stats/${encodedFilename}`);
     return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la récupération des statistiques');
+      const errorData = error.response.data;
+      const errorMsg = errorData.error || errorData.message || 'Erreur lors de la récupération des statistiques';
+      // Si des fichiers sont disponibles, les inclure dans le message
+      if (errorData.available_files && errorData.available_files.length > 0) {
+        throw new Error(`${errorMsg}. Fichiers disponibles: ${errorData.available_files.join(', ')}`);
+      }
+      throw new Error(errorMsg);
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+/**
+ * Génère le fichier annuel combiné T1+T2
+ * @param {number} year - Année pour le fichier de sortie (défaut: 2025)
+ * @returns {Promise} Résultat de la génération
+ */
+export const generateAnnualFile = async (year = 2025) => {
+  try {
+    const response = await api.post('/transform/annual', { year });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la génération du fichier annuel');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {

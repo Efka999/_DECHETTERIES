@@ -113,7 +113,7 @@ def map_category_to_collectes(categorie, sous_categorie, flux, orientation=None)
 # Main Transformation Function
 # ============================================================================
 
-def transform_t2_to_collectes(input_file, output_file, dechetterie_filter=None, combine_all=False):
+def transform_to_collectes(input_file, output_file, dechetterie_filter=None, combine_all=False):
     """
     Transform Excel data into COLLECTES summary format
     
@@ -132,21 +132,42 @@ def transform_t2_to_collectes(input_file, output_file, dechetterie_filter=None, 
         print(f"\n❌ ERREUR : Fichier introuvable : {input_file}")
         return None
     
-    # Read first sheet (index 0)
+    # Read ALL sheets and combine them
     print(f"\n[LECTURE] Lecture du fichier : {os.path.basename(input_file)}")
     try:
-        # Read first sheet (index 0) - whatever its name is
-        df = pd.read_excel(input_file, sheet_name=0)
-        # Get the actual sheet name for info
         excel_file = pd.ExcelFile(input_file)
-        sheet_name = excel_file.sheet_names[0]
-        print(f"   Feuille lue : '{sheet_name}' (premiere feuille)")
+        all_sheets = excel_file.sheet_names
+        print(f"   Feuilles detectees : {len(all_sheets)}")
+        for sheet in all_sheets:
+            print(f"     - {sheet}")
+        
+        # Read all sheets and combine them
+        all_dataframes = []
+        for sheet_name in all_sheets:
+            try:
+                sheet_df = pd.read_excel(input_file, sheet_name=sheet_name)
+                # Check if this sheet has the required columns
+                required_columns = ['Catégorie', 'Sous Catégorie', 'Flux', 'Poids', 'Date', 'Lieu collecte']
+                if all(col in sheet_df.columns for col in required_columns):
+                    all_dataframes.append(sheet_df)
+                    print(f"   [OK] Feuille '{sheet_name}' : {len(sheet_df)} enregistrements avec colonnes requises")
+                else:
+                    print(f"   [SKIP] Feuille '{sheet_name}' : colonnes requises manquantes")
+            except Exception as e:
+                print(f"   [ERREUR] Impossible de lire la feuille '{sheet_name}' : {str(e)}")
+                continue
+        
+        if not all_dataframes:
+            print(f"\n[ERREUR] Aucune feuille valide trouvee dans le fichier")
+            return None
+        
+        # Combine all dataframes
+        df = pd.concat(all_dataframes, ignore_index=True)
+        print(f"   [OK] Total combine : {len(df)} enregistrements depuis {len(all_dataframes)} feuille(s)")
     except Exception as e:
         print(f"\n[ERREUR] Impossible de lire le fichier Excel : {str(e)}")
         print(f"   Verifiez que le fichier n'est pas ouvert dans Excel.")
         return None
-    
-    print(f"   [OK] {len(df)} enregistrements trouves")
     
     # Check required columns
     required_columns = ['Catégorie', 'Sous Catégorie', 'Flux', 'Poids', 'Date', 'Lieu collecte']
@@ -240,60 +261,6 @@ def transform_t2_to_collectes(input_file, output_file, dechetterie_filter=None, 
     # Always create combined output with all déchetteries on one sheet
     print(f"\n[CREATION] Creation du fichier combine avec toutes les dechetteries...")
     return _create_combined_output_all_dechetteries(mapped_df, output_file, date_range_str, unique_dechetteries, original_df)
-
-def _create_single_output(mapped_df, output_file, date_range_str, dechetterie_name):
-    """Create output for a single déchetterie"""
-    
-    # Group by month and category
-    summary = mapped_df.groupby(['MonthName', 'MappedCategory'])['Poids'].sum().reset_index()
-    
-    # Pivot
-    pivot_df = summary.pivot_table(
-        index='MonthName',
-        columns='MappedCategory',
-        values='Poids',
-        aggfunc='sum',
-        fill_value=0
-    ).reset_index()
-    
-    # Reorder months
-    month_order = ['JANVIER', 'FEVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN',
-                   'JUILLET', 'AOUT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DECEMBRE']
-    
-    ordered_df = pd.DataFrame({'MonthName': month_order})
-    result_df = ordered_df.merge(pivot_df, on='MonthName', how='left')
-    result_df = result_df.fillna(0)
-    
-    # Use déchetterie name as header
-    dechetterie_header = dechetterie_name.upper()
-    result_df = result_df.rename(columns={'MonthName': dechetterie_header})
-    
-    # Standard columns
-    standard_columns = [dechetterie_header, 'MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
-                       'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
-                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'PMCB',
-                       'MERCERIE', 'TEXTILE']
-    
-    # Add missing columns
-    for col in standard_columns:
-        if col not in result_df.columns:
-            result_df[col] = 0
-    
-    # Reorder columns
-    result_df = result_df[[dechetterie_header] +
-                          [col for col in standard_columns[1:] if col in result_df.columns]]
-    
-    # Add totals
-    numeric_cols = [col for col in result_df.columns if col != dechetterie_header and result_df[col].dtype in [np.int64, np.float64]]
-    result_df['TOTAL'] = result_df[numeric_cols].sum(axis=1)
-    
-    if 'MASSICOT' in result_df.columns and 'DEMANTELEMENT' in result_df.columns:
-        result_df['sans massicot et démantèlement'] = result_df['TOTAL'] - result_df['MASSICOT'] - result_df['DEMANTELEMENT']
-    else:
-        result_df['sans massicot et démantèlement'] = result_df['TOTAL']
-    
-    # Create Excel file (same structure as before)
-    return _write_excel_file(result_df, output_file, date_range_str, dechetterie_header, standard_columns)
 
 def _create_combined_output_all_dechetteries(mapped_df, output_file, date_range_str, unique_dechetteries, original_df=None):
     """Create output with all déchetteries on one sheet, with totals and statistics
@@ -1096,174 +1063,6 @@ def _apply_formatting_to_combined_file(output_file, num_dechetteries, num_months
     wb.save(output_file)
     wb.close()
 
-def _write_excel_file(result_df, output_file, date_range_str, dechetterie_header, standard_columns):
-    """Write Excel file with formatting matching COLLECTES format"""
-    
-    data_rows = []
-    for _, row in result_df.iterrows():
-        data_row = [row[dechetterie_header]]
-        for col in standard_columns[1:]:
-            if col in result_df.columns:
-                val = row[col]
-                data_row.append(val if pd.notna(val) else 0)
-            else:
-                data_row.append(0)
-        
-        total_val = row['TOTAL'] if 'TOTAL' in result_df.columns else 0
-        data_row.append(total_val)
-        
-        sans_massicot_val = row['sans massicot et démantèlement'] if 'sans massicot et démantèlement' in result_df.columns else total_val
-        data_row.append(sans_massicot_val)
-        
-        data_row.append('')
-        data_row.append('')
-        data_row.append('')
-        
-        data_rows.append(data_row)
-    
-    # Write to Excel
-    print(f"\nWriting output to: {output_file}")
-    with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-        title_text = f"COLLECTES DECHETERIES {date_range_str}"
-        title_row = [[title_text] + [''] * 22]
-        empty_row = [[''] * 19 + ['sans massicot et démantèlement'] + [''] * 3]
-        
-        header_values = standard_columns.copy()
-        header_values.extend(['', '', '', 'DECHETS ULTIMES', ''])
-        header_row = [header_values[:23]]
-        
-        all_rows = title_row + empty_row + header_row + data_rows
-        final_df = pd.DataFrame(all_rows)
-        final_df.to_excel(writer, sheet_name='Feuil1', index=False, header=False)
-        final_df.to_excel(writer, sheet_name='CALCUL POIDS', index=False, header=False)
-    
-    # Apply formatting (same as original script)
-    print("Applying formatting...")
-    wb = load_workbook(output_file)
-    
-    # Define styles
-    medium_border = Border(
-        left=Side(style='medium', color='000000'),
-        right=Side(style='medium', color='000000'),
-        top=Side(style='medium', color='000000'),
-        bottom=Side(style='medium', color='000000')
-    )
-    
-    header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-    header_font = Font(name='Calibri', size=11, bold=True)
-    header_alignment = Alignment(horizontal='center', vertical='center')
-    
-    data_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-    data_font = Font(name='Calibri', size=11, bold=False)
-    data_alignment = Alignment(horizontal='center', vertical='center')
-    
-    month_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-    month_font = Font(name='Calibri', size=11, bold=False)
-    month_alignment = Alignment(horizontal='center', vertical='center')
-    
-    total_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-    total_font = Font(name='Calibri', size=12, bold=True)
-    total_alignment = Alignment(horizontal='center', vertical='center')
-    
-    # Apply formatting to both sheets
-    for sheet_name in ['Feuil1', 'CALCUL POIDS']:
-        ws = wb[sheet_name]
-        
-        # Set row heights
-        ws.row_dimensions[1].height = 26.25
-        ws.row_dimensions[2].height = 15.75
-        ws.row_dimensions[3].height = 15.75
-        for row in range(4, ws.max_row + 1):
-            ws.row_dimensions[row].height = 16.5
-        
-        # Format Row 3 (headers)
-        for col in range(1, 19):
-            cell = ws.cell(row=3, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-            cell.border = medium_border
-        
-        cell = ws.cell(row=3, column=22)
-        if cell.value:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-        
-        # Format data rows
-        for row_idx in range(4, ws.max_row + 1):
-            cell = ws.cell(row=row_idx, column=1)
-            if cell.value:
-                cell.fill = month_fill
-                cell.font = month_font
-                cell.alignment = month_alignment
-                cell.border = medium_border
-            
-            for col in range(2, 16):
-                cell = ws.cell(row=row_idx, column=col)
-                val = cell.value
-                if val is not None and val != '':
-                    cell.fill = data_fill
-                    cell.font = data_font
-                    cell.alignment = data_alignment
-                    cell.border = medium_border
-            
-            cell = ws.cell(row=row_idx, column=16)
-            val = cell.value
-            if val is not None and val != '':
-                if isinstance(val, (int, float)):
-                    cell.fill = data_fill
-                    cell.border = medium_border
-                else:
-                    cell.fill = month_fill
-                cell.font = data_font
-                cell.alignment = data_alignment
-            
-            cell = ws.cell(row=row_idx, column=17)
-            val = cell.value
-            if val is not None and val != '':
-                cell.fill = data_fill
-                cell.font = data_font
-                cell.alignment = data_alignment
-                cell.border = medium_border
-            
-            cell = ws.cell(row=row_idx, column=18)
-            val = cell.value
-            if val is not None and val != '':
-                cell.fill = data_fill
-                cell.font = data_font
-                cell.alignment = data_alignment
-            cell.border = medium_border
-            
-            cell = ws.cell(row=row_idx, column=19)
-            if cell.value is not None and cell.value != '':
-                col_start = get_column_letter(2)
-                col_end = get_column_letter(18)
-                cell.value = f'=SUM({col_start}{row_idx}:{col_end}{row_idx})'
-                cell.fill = total_fill
-                cell.font = total_font
-                cell.alignment = total_alignment
-                cell.border = medium_border
-            
-            cell = ws.cell(row=row_idx, column=20)
-            if cell.value is not None and cell.value != '':
-                cell.value = f'=S{row_idx}-J{row_idx}-D{row_idx}'
-                cell.font = total_font
-                cell.alignment = total_alignment
-        
-        # Set column widths
-        ws.column_dimensions['A'].width = 12
-        for col in range(2, 19):
-            ws.column_dimensions[get_column_letter(col)].width = 10
-        ws.column_dimensions['S'].width = 12
-        ws.column_dimensions['T'].width = 12
-    
-    wb.save(output_file)
-    wb.close()
-    
-    print(f"Output file created: {output_file}")
-    return result_df
-
 if __name__ == "__main__":
     import sys
     
@@ -1276,9 +1075,9 @@ if __name__ == "__main__":
     # Aide si demandée
     if len(sys.argv) > 1 and sys.argv[1] in ['--help', '-h', '--aide', '/?']:
         print("UTILISATION:")
-        print("  python transform_t2_to_collectes.py")
+        print("  python transform_collectes.py")
         print("\n  Ou avec un nom de fichier de sortie personnalisé:")
-        print("  python transform_t2_to_collectes.py mon_fichier.xlsx")
+        print("  python transform_collectes.py mon_fichier.xlsx")
         print("\nCE QUE FAIT LE SCRIPT:")
         print("  - Lit automatiquement le premier fichier Excel trouve dans le dossier 'input'")
         print("  - Utilise toujours la premiere feuille du fichier Excel")
@@ -1327,7 +1126,7 @@ if __name__ == "__main__":
         print(f"  2. Le fichier n'est-il pas ouvert dans Excel ?")
         print(f"  3. Le fichier a-t-il une extension .xlsx ou .xls ?")
         print(f"\nPour obtenir de l'aide, tapez :")
-        print(f"  python transform_t2_to_collectes.py --help")
+        print(f"  python transform_collectes.py --help")
         print(f"{'='*70}\n")
         sys.exit(1)
     
@@ -1344,7 +1143,7 @@ if __name__ == "__main__":
     print(f"\nTraitement en cours...\n")
     
     try:
-        result = transform_t2_to_collectes(input_file, output_file, None, combine_all=True)
+        result = transform_to_collectes(input_file, output_file, None, combine_all=True)
         
         if result is not None:
             print(f"\n{'='*70}")

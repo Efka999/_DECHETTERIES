@@ -12,17 +12,17 @@ from pathlib import Path
 
 # Import the transformation function
 try:
-    from transform_t2_to_collectes import transform_t2_to_collectes
+    from transform_collectes import transform_to_collectes
 except ImportError:
     # If running as standalone, try relative import
     import importlib.util
     spec = importlib.util.spec_from_file_location(
-        "transform_t2_to_collectes",
-        os.path.join(os.path.dirname(__file__), "transform_t2_to_collectes.py")
+        "transform_to_collectes",
+        os.path.join(os.path.dirname(__file__), "transform_collectes.py")
     )
     transform_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(transform_module)
-    transform_t2_to_collectes = transform_module.transform_t2_to_collectes
+    transform_to_collectes = transform_module.transform_to_collectes
 
 
 class DechetteriesApp:
@@ -360,7 +360,7 @@ class DechetteriesApp:
     def run_transformation(self):
         """Exécute la transformation (appelé depuis un thread)"""
         try:
-            result = transform_t2_to_collectes(
+            result = transform_to_collectes(
                 self.input_file.get(),
                 self.output_file.get(),
                 dechetterie_filter=None,

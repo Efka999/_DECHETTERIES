@@ -145,19 +145,33 @@ def download(filename):
         else:
             output_dir = cwd / 'output'
     
-    # Chercher le fichier dans output/
-    file_path = output_dir / safe_filename
+    # Extraire le nom de fichier (sans chemin)
+    filename_basename = os.path.basename(filename)
     
-    # Si pas trouvé, essayer avec le chemin complet fourni
+    # Extraire le nom de fichier (sans chemin)
+    filename_basename = os.path.basename(filename)
+    
+    # Chercher le fichier dans output/ - essayer d'abord avec le nom exact (avec espaces)
+    # car secure_filename transforme les espaces en underscores
+    file_path = output_dir / filename_basename
+    
+    # Si pas trouvé, essayer avec secure_filename (pour les noms avec espaces encodés)
+    if not file_path.exists():
+        file_path = output_dir / safe_filename
+    
+    # Si toujours pas trouvé, essayer avec le chemin complet fourni
     if not file_path.exists():
         potential_path = Path(filename)
         if potential_path.exists() and potential_path.is_file():
             file_path = potential_path
         else:
+            # Lister les fichiers disponibles pour debug
+            available_files = [f.name for f in output_dir.glob('*.xlsx')] if output_dir.exists() else []
             return jsonify({
                 'success': False,
                 'message': 'Fichier introuvable',
-                'error': f'Le fichier {safe_filename} n\'a pas été trouvé dans {output_dir}'
+                'error': f'Le fichier {filename_basename} n\'a pas été trouvé dans {output_dir}',
+                'available_files': available_files
             }), 404
     
     if not file_path.exists():
@@ -201,8 +215,8 @@ def get_stats(filename):
     Returns:
         JSON avec les statistiques
     """
-    # Sécuriser le nom de fichier
-    safe_filename = secure_filename(os.path.basename(filename))
+    # Extraire le nom de fichier (sans chemin)
+    filename_basename = os.path.basename(filename)
     
     # Chercher le fichier dans le dossier output à la racine du projet
     # Structure: _DECHETTERIES/web_app/backend/api/transform.py
@@ -224,19 +238,27 @@ def get_stats(filename):
         else:
             output_dir = cwd / 'output'
     
-    # Chercher le fichier dans output/
-    file_path = output_dir / safe_filename
+    # Chercher le fichier dans output/ - essayer d'abord avec le nom exact
+    file_path = output_dir / filename_basename
     
-    # Si pas trouvé, essayer avec le chemin complet fourni
+    # Si pas trouvé, essayer avec secure_filename (pour les noms avec espaces encodés)
+    if not file_path.exists():
+        safe_filename = secure_filename(filename_basename)
+        file_path = output_dir / safe_filename
+    
+    # Si toujours pas trouvé, essayer avec le chemin complet fourni
     if not file_path.exists():
         potential_path = Path(filename)
         if potential_path.exists() and potential_path.is_file():
             file_path = potential_path
         else:
+            # Lister les fichiers disponibles pour debug
+            available_files = [f.name for f in output_dir.glob('*.xlsx')] if output_dir.exists() else []
             return jsonify({
                 'success': False,
                 'message': 'Fichier introuvable',
-                'error': f'Le fichier {safe_filename} n\'a pas été trouvé dans {output_dir}'
+                'error': f'Le fichier {filename_basename} n\'a pas été trouvé dans {output_dir}',
+                'available_files': available_files
             }), 404
     
     try:

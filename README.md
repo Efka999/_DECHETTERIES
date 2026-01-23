@@ -16,19 +16,15 @@ _DECHETTERIES/
 │       ├── build_exe.spec            # Configuration PyInstaller
 │       └── requirements_build.txt     # Dépendances pour build
 │
-├── web_app/                    # NOUVEAU : Application Web React
-│   ├── backend/                # API Flask
-│   │   ├── app.py             # Serveur Flask
-│   │   ├── api/                # Endpoints API
-│   │   ├── services/           # Services (réutilise scripts/)
-│   │   └── requirements.txt    # Dépendances backend
-│   ├── frontend/               # Application React
-│   │   ├── src/                # Code source React
-│   │   └── package.json        # Dépendances frontend
-│   └── launcher/               # Scripts de démarrage
-│       ├── start.bat           # Windows
-│       ├── start.ps1           # PowerShell
-│       └── start.sh            # Linux/Mac
+├── server/                     # API Flask (Backend)
+│   ├── app.py                 # Serveur Flask
+│   ├── api/                    # Endpoints API
+│   ├── services/               # Services (réutilise scripts/)
+│   └── requirements.txt        # Dépendances backend
+├── vite/                       # Application React (Frontend Vite)
+│   ├── src/                    # Code source React
+│   ├── package.json            # Dépendances frontend
+│   └── scripts/                # Scripts utilitaires
 │
 ├── input/                      # Fichiers Excel d'entrée (partagé)
 │   └── [N'importe quel fichier .xlsx ou .xls]
@@ -50,23 +46,28 @@ L'application web offre une interface moderne accessible depuis votre navigateur
 
 #### Démarrage Rapide
 
-**Windows :**
-1. Double-cliquez sur `web_app/launcher/start.bat`
-2. Le backend et le frontend démarrent automatiquement
-3. Votre navigateur s'ouvre sur http://localhost:3000
-
-**PowerShell :**
-```powershell
-cd web_app\launcher
-.\start.ps1
-```
-
-**Linux/Mac :**
+1. **Installer les dépendances** (première fois uniquement) :
 ```bash
-cd web_app/launcher
-chmod +x start.sh
-./start.sh
+# Backend
+cd server
+pip install -r requirements.txt
+
+# Frontend
+cd ../vite
+npm install
 ```
+
+2. **Démarrer l'application** :
+```bash
+cd vite
+npm run dev:full
+```
+
+Cela démarre automatiquement :
+- Le backend Flask sur `http://localhost:5000`
+- Le frontend Vite sur `http://localhost:5173`
+
+Le navigateur s'ouvrira automatiquement sur `http://localhost:5173`
 
 #### Utilisation
 
@@ -202,17 +203,35 @@ Le script traite automatiquement **7 déchetteries** :
 
 **Backend :**
 ```bash
-cd web_app/backend
+cd server
 pip install -r requirements.txt
 ```
 
 **Frontend :**
 ```bash
-cd web_app/frontend
+cd vite
 npm install
 ```
 
-**Note :** Le launcher (`start.bat`, `start.ps1`, `start.sh`) installe automatiquement les dépendances si elles ne sont pas présentes.
+**Note :** Assurez-vous d'avoir installé les dépendances avant de démarrer (`pip install -r server/requirements.txt` et `npm install` dans `vite/`).
+
+#### Démarrage avec HTTPS (Optionnel)
+
+Pour activer HTTPS en développement local :
+
+1. **Générer les certificats SSL** :
+```bash
+cd server
+python generate_cert.py
+```
+
+2. **Démarrer en HTTPS** :
+```bash
+cd vite
+npm run dev:full:https
+```
+
+Le navigateur vous demandera d'accepter le certificat auto-signé (normal en développement).
 
 ### Pour les Outils Existants (CLI et tkinter)
 

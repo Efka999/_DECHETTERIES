@@ -59,6 +59,9 @@ build/
 .next/
 out/
 
+# Frontend production build (généré par GitHub Actions, ne pas commiter)
+vite/dist/
+
 # Testing
 coverage/
 *.cover
@@ -115,6 +118,13 @@ tmp/
 *.tmp
 *.log
 
+# Certificats SSL (ne jamais commiter)
+server/certs/
+*.pem
+*.key
+*.crt
+*.cert
+
 # Fichiers de build spécifiques au projet
 scripts/dist/
 scripts/build/build_exe/
@@ -137,5 +147,5 @@ desktop.ini
 *.backup
 *~
 
-# Launcher logs
+# Logs
 *.log

@@ -1288,12 +1288,13 @@ const Statistics = ({ outputFilename, onBack }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-purple-600 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-background text-foreground">
+        <GlobalHeader />
+        <div className="max-w-7xl mx-auto p-4 md:p-8">
           <Card>
             <CardContent className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <span className="ml-3 text-lg">Chargement des statistiques...</span>
+              <Loader2 className="w-8 h-8 animate-spin text-[#5ea226]" />
+              <span className="ml-3 text-lg text-foreground">Chargement des statistiques...</span>
             </CardContent>
           </Card>
         </div>
@@ -1303,8 +1304,9 @@ const Statistics = ({ outputFilename, onBack }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-purple-600 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-background text-foreground">
+        <GlobalHeader />
+        <div className="max-w-7xl mx-auto p-4 md:p-8">
           <Card>
             <CardContent className="py-8">
               <Alert variant="destructive">

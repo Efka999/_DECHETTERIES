@@ -1,6 +1,6 @@
-# Outil de Transformation des Données Déchetteries
+# GDR Dump (Beta)
 
-Cet outil transforme automatiquement les données détaillées des déchetteries en format de présentation client (format COLLECTES).
+Outil de transformation des données déchetteries en format de présentation client (format COLLECTES).
 
 ## 📁 Structure du Projet
 
@@ -215,17 +215,52 @@ npm install
 
 **Note :** Assurez-vous d'avoir installé les dépendances avant de démarrer (`pip install -r server/requirements.txt` et `npm install` dans `vite/`).
 
+#### Configuration avec fichier `.env`
+
+Le projet utilise un fichier `.env` dans le dossier `vite/` pour la configuration. Ce fichier est automatiquement ignoré par git.
+
+**Variables disponibles :**
+- `USE_HTTPS=true` / `VITE_USE_HTTPS=true` : Active HTTPS pour le backend et le frontend
+- `PORT=5000` : Port du serveur backend (défaut: 5000)
+- `FLASK_ENV=development` : Mode debug Flask
+- `VITE_API_URL=http://localhost:5000` : URL de l'API backend (optionnel, utilise le proxy par défaut)
+- `FRONTEND_URL=...` : URL du frontend en production (pour CORS)
+
+**Exemple de `.env` :**
+```env
+# Activer HTTPS
+USE_HTTPS=true
+VITE_USE_HTTPS=true
+
+# Port backend
+PORT=5000
+
+# Mode debug
+FLASK_ENV=development
+```
+
 #### Démarrage avec HTTPS (Optionnel)
 
 Pour activer HTTPS en développement local :
 
-1. **Générer les certificats SSL** :
-```bash
-cd server
-python generate_cert.py
-```
+**Méthode 1 : Via le fichier `.env`** (recommandé)
+1. Éditez `vite/.env` et décommentez les lignes :
+   ```env
+   USE_HTTPS=true
+   VITE_USE_HTTPS=true
+   ```
+2. **Générer les certificats SSL** (une seule fois) :
+   ```bash
+   cd server
+   python generate_cert.py
+   ```
+3. **Démarrer normalement** :
+   ```bash
+   cd vite
+   npm run dev:full
+   ```
 
-2. **Démarrer en HTTPS** :
+**Méthode 2 : Via la ligne de commande**
 ```bash
 cd vite
 npm run dev:full:https

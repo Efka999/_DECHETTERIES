@@ -1,5 +1,5 @@
 """
-Serveur Flask pour l'API de transformation des déchetteries
+GDR Dump (Beta) - Serveur Flask pour l'API de transformation des déchetteries
 """
 
 from flask import Flask, jsonify
@@ -63,7 +63,7 @@ def create_app():
     @app.route('/')
     def index():
         return jsonify({
-            'name': 'API Transformation Déchetteries',
+            'name': 'GDR Dump (Beta) API',
             'version': '1.0.0',
             'status': 'running',
             'endpoints': {
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     protocol = 'https' if use_https and ssl_context else 'http'
     
     print(f"=" * 70)
-    print(f"  Serveur API Transformation Déchetteries")
+    print(f"  GDR Dump (Beta) - Serveur API")
     print(f"=" * 70)
     print(f"  Serveur démarré sur {protocol}://localhost:{port}")
     print(f"  Mode debug: {debug}")

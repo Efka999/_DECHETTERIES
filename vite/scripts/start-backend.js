@@ -8,9 +8,13 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
+import { config } from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Charger les variables d'environnement depuis .env
+config({ path: join(__dirname, '../.env') });
 
 // Chemin vers le backend
 const projectRoot = join(__dirname, '../..');

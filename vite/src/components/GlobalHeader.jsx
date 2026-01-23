@@ -18,7 +18,7 @@ function GlobalHeader() {
             alt="Emmaüs Environnement"
             className="h-5 w-auto opacity-80"
           />
-          <div className="text-lg font-semibold text-[#5ea226]">GDR DUMP beta</div>
+          <div className="text-lg font-semibold text-[#5ea226]">GDR Dump (Beta)</div>
         </div>
         <nav className="flex items-center gap-4">
           <NavLink to="/" className={navLinkClass}>

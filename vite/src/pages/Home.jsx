@@ -114,7 +114,7 @@ function Home() {
             />
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            GDR DUMP BETA
+            GDR Dump (Beta)
           </h1>
         </header>
 

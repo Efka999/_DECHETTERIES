@@ -3,8 +3,12 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync, readFileSync } from 'fs'
+import { config } from 'dotenv'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Charger les variables d'environnement depuis .env
+config({ path: path.join(__dirname, '.env') })
 
 // Fonction pour charger les certificats HTTPS
 function loadHttpsConfig() {

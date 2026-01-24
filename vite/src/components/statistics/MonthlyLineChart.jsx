@@ -22,13 +22,17 @@ const MonthlyLineChart = ({
         <ResponsiveContainer width="100%" height={height}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              tickFormatter={(label) => formatExactDate(label, datasetYear)}
+            />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip
               formatter={(value) => `${formatKg(value)} kg`}
               labelFormatter={(label) => formatExactDate(label, datasetYear)}
             />
-            <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={false} name="Total" />
+            <Line type="monotoneX" dataKey={dataKey} stroke={color} strokeWidth={2} dot={false} name="Total" />
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

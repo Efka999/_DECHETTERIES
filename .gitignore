@@ -125,6 +125,10 @@ server/certs/
 *.crt
 *.cert
 
+# Base de données locale (SQLite)
+server/data/
+*.db
+
 # Fichiers de build spécifiques au projet
 scripts/dist/
 scripts/build/build_exe/

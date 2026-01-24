@@ -69,6 +69,25 @@ Cela démarre automatiquement :
 
 Le navigateur s'ouvrira automatiquement sur `http://localhost:5173`
 
+#### Base de données locale (SQLite)
+
+Le backend peut ingérer les fichiers bruts du dossier `input/` dans une base SQLite locale.
+
+- **Import des fichiers bruts** (tous les `.xlsx/.xls` du dossier `input/`) :
+```bash
+curl -X POST http://localhost:5000/api/db/import -H "Content-Type: application/json" -d "{\"force\": false}"
+```
+- **Statut de la base** :
+```bash
+curl http://localhost:5000/api/db/status
+```
+- **Statistiques basées sur les données brutes** :
+```bash
+curl http://localhost:5000/api/stats
+```
+
+La base SQLite est stockée localement dans `server/data/collectes.db` (non versionnée).
+
 #### Utilisation
 
 1. **Glissez-déposez** votre fichier Excel dans la zone prévue

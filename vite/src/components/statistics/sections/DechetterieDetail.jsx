@@ -13,7 +13,8 @@ import {
   buildRangeLabel,
   formatDuAuRange,
   formatKg,
-  formatExactDate
+  formatExactDate,
+  smoothTimeSeries
 } from '../../../utils/statistics';
 
 const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
@@ -41,12 +42,22 @@ const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
     });
   }, [stats.months_order, data, categories]);
 
+  const smoothedTimeSeries = useMemo(
+    () => smoothTimeSeries(timeSeries, categories, 7),
+    [timeSeries, categories]
+  );
+
   const monthlyTotals = useMemo(() => {
     return (stats.months_order || []).map((month) => ({
       month,
       total: data?.months?.[month]?.TOTAL || 0,
     }));
   }, [stats.months_order, data]);
+
+  const smoothedMonthlyTotals = useMemo(
+    () => smoothTimeSeries(monthlyTotals, ['total'], 7),
+    [monthlyTotals]
+  );
 
   const finalMonthlyData = useMemo(() => {
     return (stats.months_order || []).map((month) => {
@@ -57,6 +68,11 @@ const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
       return entry;
     });
   }, [stats.months_order, data, finalFluxes]);
+
+  const smoothedFinalMonthlyData = useMemo(
+    () => smoothTimeSeries(finalMonthlyData, finalFluxes, 7),
+    [finalMonthlyData, finalFluxes]
+  );
 
   const totals = useMemo(() => data?.total || {}, [data]);
   const finalTotalsData = useMemo(
@@ -140,9 +156,9 @@ const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
           <AccordionContent>
             <div className="space-y-4 pt-2">
               <MultiLineChart
-                title="Évolution mensuelle par flux"
+                title="Évolution par flux"
                 description={`Une ligne par flux · kg ${formattedRange}`}
-                data={timeSeries}
+                data={smoothedTimeSeries}
                 categories={categories}
                 colorMap={colorMap}
                 visible={visible}
@@ -152,9 +168,9 @@ const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <MonthlyLineChart
-                  title="Total mensuel"
+                  title="Total par date"
                   description={`Somme des flux (kg) ${formattedRange}`}
-                  data={monthlyTotals}
+                  data={smoothedMonthlyTotals}
                   datasetYear={datasetYear}
                   color="#8b5cf6"
                 />
@@ -168,7 +184,7 @@ const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={finalMonthlyData}>
+                    <LineChart data={smoothedFinalMonthlyData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} />
@@ -180,7 +196,7 @@ const DechetterieDetail = ({ stats, dechetterieName, datasetYear }) => {
                         {finalFluxes.map((flux) => (
                           <Line
                             key={flux}
-                            type="monotone"
+                            type="monotoneX"
                             dataKey={flux}
                             stroke={finalFluxColorMap[flux] || '#3b82f6'}
                             strokeWidth={2}

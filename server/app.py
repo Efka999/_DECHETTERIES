@@ -11,6 +11,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from api.transform import api_bp
+from api.db import db_bp
+from services.db import init_db
 
 def create_app():
     """Crée et configure l'application Flask"""
@@ -56,8 +58,12 @@ def create_app():
     
     CORS(app, origins=allowed_origins)
     
+    # Initialiser la base de données (création des tables si nécessaire)
+    init_db()
+
     # Enregistrer les blueprints
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(db_bp, url_prefix='/api')
     
     # Route de base
     @app.route('/')
@@ -69,7 +75,10 @@ def create_app():
             'endpoints': {
                 'status': '/api/status',
                 'transform': '/api/transform (POST)',
-                'download': '/api/download/<filename> (GET)'
+                'download': '/api/download/<filename> (GET)',
+                'db_import': '/api/db/import (POST)',
+                'db_status': '/api/db/status (GET)',
+                'stats_db': '/api/stats (GET)'
             }
         })
     
@@ -142,6 +151,9 @@ if __name__ == '__main__':
     print(f"    - GET  /api/status")
     print(f"    - POST /api/transform")
     print(f"    - GET  /api/download/<filename>")
+    print(f"    - POST /api/db/import")
+    print(f"    - GET  /api/db/status")
+    print(f"    - GET  /api/stats")
     print(f"=" * 70)
     
     app.run(

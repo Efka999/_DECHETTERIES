@@ -8,6 +8,21 @@ import re
 from datetime import datetime
 from pathlib import Path
 from openpyxl import load_workbook
+import sys
+
+from services.db import get_connection, init_db
+
+# Importer les règles de mapping depuis scripts/transform_collectes.py
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent.parent
+scripts_dir = project_root / 'scripts'
+if scripts_dir.exists() and str(scripts_dir) not in sys.path:
+    sys.path.insert(0, str(scripts_dir))
+try:
+    from transform_collectes import map_category_to_collectes, DECHETTERIE_MAPPING
+except Exception:
+    map_category_to_collectes = None
+    DECHETTERIE_MAPPING = {}
 
 
 def _extract_date_range(ws):
@@ -419,3 +434,190 @@ def parse_output_excel(file_path):
             'stats': None,
             'error': str(e)
         }
+
+
+def build_stats_from_db():
+    init_db()
+    with get_connection() as conn:
+        df = pd.read_sql(
+            """
+            SELECT date, lieu_collecte, categorie, sous_categorie, flux, orientation, poids, source_sheet
+            FROM raw_collectes
+            """,
+            conn
+        )
+
+    if df.empty:
+        return {
+            'success': False,
+            'stats': None,
+            'error': "Aucune donnée brute disponible dans la base."
+        }
+
+    df['Date'] = pd.to_datetime(df['date'], errors='coerce')
+    df = df[df['Date'].notna()].copy()
+    if df.empty:
+        return {
+            'success': False,
+            'stats': None,
+            'error': "Aucune date valide dans les données brutes."
+        }
+
+    df['Dechetterie'] = df['lieu_collecte'].map(DECHETTERIE_MAPPING)
+    df['Dechetterie'] = df['Dechetterie'].fillna(df['lieu_collecte'])
+    apport_mask = df['lieu_collecte'].astype(str).str.upper().eq('APPORT VOLONTAIRE')
+    df.loc[apport_mask, 'Dechetterie'] = 'Pépinière'
+    allowed_dechetteries = set(DECHETTERIE_MAPPING.values())
+    bym_mask = df['source_sheet'].astype(str).str.upper().str.contains('BYM', na=False) if 'source_sheet' in df.columns else False
+    df = df[df['Dechetterie'].isin(allowed_dechetteries) | bym_mask].copy()
+
+    df['DateKey'] = df['Date'].dt.strftime('%Y-%m-%d')
+    df = df[df['DateKey'].notna()].copy()
+    date_order = sorted(df['DateKey'].unique())
+
+    category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
+                        'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
+                        'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'PMCB',
+                        'MERCERIE', 'TEXTILE']
+    final_fluxes = ['MASSICOT', 'DEMANTELEMENT', 'DECHETS ULTIMES']
+
+    if map_category_to_collectes is None:
+        return {
+            'success': False,
+            'stats': None,
+            'error': "Mapping des catégories indisponible."
+        }
+
+    df['MappedCategory'] = df.apply(
+        lambda row: map_category_to_collectes(
+            row['categorie'],
+            row['sous_categorie'],
+            row['flux'],
+            row['orientation']
+        ),
+        axis=1
+    )
+    mapped_df = df[df['MappedCategory'].notna()].copy()
+
+    # Déchets ultimes (sur données brutes)
+    ultimes_mask = (
+        df['categorie'].astype(str).str.upper().str.strip().eq('EVACUATION DECHETS')
+        & df['orientation'].astype(str).str.upper().str.strip().eq('DECHETS ULTIMES')
+    )
+    ultimes_df = df[ultimes_mask].copy()
+
+    unique_dechetteries = [str(d) for d in df['Dechetterie'].unique() if pd.notna(d)]
+    unique_dechetteries = sorted(set(unique_dechetteries))
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("[DB] Déchetteries détectées (%s): %s", len(unique_dechetteries), ", ".join(unique_dechetteries))
+    standard_order = ['Pépinière', 'Sanssac', 'St Germain', 'Polignac']
+    special_cases = [d for d in unique_dechetteries if d not in standard_order]
+    ordered_dechetteries = [d for d in standard_order if d in unique_dechetteries] + sorted(special_cases)
+
+    dechetteries_data = {}
+
+    for dech in ordered_dechetteries:
+        dech_df = mapped_df[mapped_df['Dechetterie'] == dech].copy()
+        if dech_df.empty and ultimes_df[ultimes_df['Dechetterie'] == dech].empty:
+            continue
+
+        summary = dech_df.groupby(['DateKey', 'MappedCategory'])['poids'].sum().reset_index()
+        pivot_df = summary.pivot_table(
+            index='DateKey',
+            columns='MappedCategory',
+            values='poids',
+            aggfunc='sum',
+            fill_value=0
+        ).reset_index()
+
+        ordered_df = pd.DataFrame({'DateKey': date_order})
+        result_df = ordered_df.merge(pivot_df, on='DateKey', how='left').fillna(0)
+
+        months_data = {}
+        for _, row in result_df.iterrows():
+            month_name = row['DateKey']
+            month_data = {col: float(row[col]) if col in row else 0 for col in category_columns}
+            month_total = sum(month_data.values())
+            month_data['TOTAL'] = month_total
+            months_data[month_name] = month_data
+
+        # Ajouter DECHETS ULTIMES mensuel
+        if not ultimes_df.empty:
+            ultimes_summary = (
+                ultimes_df[ultimes_df['Dechetterie'] == dech]
+                .groupby('DateKey')['poids']
+                .sum()
+                .reset_index()
+            )
+            for _, ult_row in ultimes_summary.iterrows():
+                month = ult_row['DateKey']
+                if month in months_data:
+                    months_data[month]['DECHETS ULTIMES'] = float(ult_row['poids'])
+                else:
+                    months_data[month] = {
+                        **{col: 0 for col in category_columns},
+                        'TOTAL': 0,
+                        'DECHETS ULTIMES': float(ult_row['poids'])
+                    }
+
+        # Totaux par déchetterie
+        totals_by_category = {col: 0 for col in category_columns}
+        total_sum = 0
+        ultimes_total = 0
+        for month_data in months_data.values():
+            for col in category_columns:
+                totals_by_category[col] += month_data.get(col, 0)
+            total_sum += month_data.get('TOTAL', 0)
+            ultimes_total += month_data.get('DECHETS ULTIMES', 0)
+
+        totals_by_category['TOTAL'] = total_sum
+        totals_by_category['DECHETS ULTIMES'] = ultimes_total
+
+        dechetteries_data[dech] = {
+            'months': months_data,
+            'total': totals_by_category,
+            'categories': {}
+        }
+
+    # Totaux globaux
+    global_totals = {col: 0 for col in category_columns}
+    global_totals['DECHETS ULTIMES'] = 0
+    global_totals['TOTAL'] = 0
+
+    for data in dechetteries_data.values():
+        for col in category_columns:
+            global_totals[col] += data['total'].get(col, 0)
+        global_totals['TOTAL'] += data['total'].get('TOTAL', 0)
+        global_totals['DECHETS ULTIMES'] += data['total'].get('DECHETS ULTIMES', 0)
+
+    date_start = df['Date'].min()
+    date_end = df['Date'].max()
+    dataset_year = None
+    date_range_label = None
+    if date_start is not None and date_end is not None:
+        date_range_label = f"DU {date_start.strftime('%d/%m/%Y')} au {date_end.strftime('%d/%m/%Y')}"
+        if date_start.year == date_end.year:
+            dataset_year = str(date_start.year)
+        else:
+            dataset_year = f"{date_start.year}-{date_end.year}"
+
+    stats = {
+        'dechetteries': dechetteries_data,
+        'global_totals': global_totals,
+        'category_columns': category_columns,
+        'final_fluxes': final_fluxes,
+        'months_order': date_order,
+        'num_dechetteries': len(dechetteries_data),
+        'num_months': len(date_order),
+        'dataset_year': dataset_year,
+        'date_start': date_start.strftime('%Y-%m-%d') if date_start is not None else None,
+        'date_end': date_end.strftime('%Y-%m-%d') if date_end is not None else None,
+        'date_range': date_range_label,
+    }
+
+    return {
+        'success': True,
+        'stats': stats,
+        'error': None
+    }

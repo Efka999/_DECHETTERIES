@@ -34,14 +34,56 @@ export const normalizeMonthKey = (value) =>
 export const getMonthInfo = (value) => MONTH_INFO[normalizeMonthKey(value)];
 
 export const formatMonthYear = (value, year) => {
+  const strValue = String(value || '');
+  const isoDayMatch = strValue.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoDayMatch) {
+    const date = new Date(`${strValue}T00:00:00`);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('fr-FR');
+    }
+  }
+  const isoMonthMatch = strValue.match(/^\d{4}-\d{2}$/);
+  if (isoMonthMatch) {
+    const date = new Date(`${strValue}-01T00:00:00`);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    }
+  }
+  const isoWeekMatch = strValue.match(/^(\d{4})-(\d{2})$/);
+  if (isoWeekMatch && strValue.includes('W') === false) {
+    // handled above
+  }
+  const weekMatch = strValue.match(/^(\d{4})-W?(\d{2})$/i);
+  if (weekMatch && strValue.includes('W')) {
+    return `Semaine ${weekMatch[2]} ${weekMatch[1]}`;
+  }
   const info = getMonthInfo(value);
-  if (!info) return String(value || '');
+  if (!info) return strValue;
   return year ? `${info.label} ${year}` : info.label;
 };
 
 export const formatExactDate = (value, year) => {
+  const strValue = String(value || '');
+  const isoDayMatch = strValue.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoDayMatch) {
+    const date = new Date(`${strValue}T00:00:00`);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('fr-FR');
+    }
+  }
+  const isoMonthMatch = strValue.match(/^\d{4}-\d{2}$/);
+  if (isoMonthMatch) {
+    const date = new Date(`${strValue}-01T00:00:00`);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    }
+  }
+  const weekMatch = strValue.match(/^(\d{4})-W?(\d{2})$/i);
+  if (weekMatch && strValue.includes('W')) {
+    return `Semaine ${weekMatch[2]} ${weekMatch[1]}`;
+  }
   const info = getMonthInfo(value);
-  if (!info) return String(value || '');
+  if (!info) return strValue;
   if (!year) return info.label;
   return `01 ${info.label} ${year}`;
 };
@@ -62,6 +104,16 @@ export const inferYearFromFilename = (filename) => {
 export const buildRangeLabel = (months, year) => {
   if (!months || months.length === 0) {
     return year ? `${year}` : '';
+  }
+  const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+  if (months.every(isIsoDate)) {
+    const sortedDates = [...months].sort();
+    const start = sortedDates[0];
+    const end = sortedDates[sortedDates.length - 1];
+    if (start === end) {
+      return formatExactDate(start, year);
+    }
+    return `${formatExactDate(start, year)} → ${formatExactDate(end, year)}`;
   }
   const sorted = [...months].sort((a, b) => {
     const aIndex = getMonthInfo(a)?.index ?? 999;
@@ -117,6 +169,25 @@ export const buildGlobalMonthlyData = (stats) => {
       total += data.months?.[month]?.TOTAL || 0;
     });
     return { month, total };
+  });
+};
+
+export const smoothTimeSeries = (data, keys, windowSize = 7) => {
+  if (!Array.isArray(data) || data.length === 0) return data;
+  const window = Math.max(1, Number(windowSize) || 1);
+  const keyList = Array.isArray(keys) ? keys : [keys];
+
+  return data.map((entry, index) => {
+    const start = Math.max(0, index - window + 1);
+    const slice = data.slice(start, index + 1);
+    const smoothed = { ...entry };
+
+    keyList.forEach((key) => {
+      const total = slice.reduce((sum, item) => sum + (Number(item?.[key]) || 0), 0);
+      smoothed[key] = total / slice.length;
+    });
+
+    return smoothed;
   });
 };
 

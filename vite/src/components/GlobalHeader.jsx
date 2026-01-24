@@ -27,6 +27,9 @@ function GlobalHeader() {
           <NavLink to="/stats" className={navLinkClass}>
             Statistiques
           </NavLink>
+          <NavLink to="/raw-data" className={navLinkClass}>
+            Données brutes
+          </NavLink>
         </nav>
       </div>
     </header>

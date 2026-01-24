@@ -9,6 +9,8 @@ import CategoryBarChart from '../CategoryBarChart';
 import DechetterieBarChart from '../DechetterieBarChart';
 import MonthlyLineChart from '../MonthlyLineChart';
 import MultiLineChart from '../MultiLineChart';
+import FluxCalendarHeatmap from '../FluxCalendarHeatmap';
+import AdvancedStatsPanel from '../AdvancedStatsPanel';
 import {
   buildCategoryColorMap,
   buildFinalFluxColorMap,
@@ -16,7 +18,8 @@ import {
   buildRangeLabel,
   formatDuAuRange,
   formatKg,
-  formatExactDate
+  formatExactDate,
+  smoothTimeSeries
 } from '../../../utils/statistics';
 
 const GlobalOverview = ({ stats, datasetYear }) => {
@@ -54,6 +57,10 @@ const GlobalOverview = ({ stats, datasetYear }) => {
     .sort((a, b) => b.total - a.total);
 
   const monthlyData = buildGlobalMonthlyData(stats);
+  const smoothedMonthlyData = useMemo(
+    () => smoothTimeSeries(monthlyData, ['total'], 7),
+    [monthlyData]
+  );
   const monthsWithData = monthlyData.filter((item) => item.total > 0).map((item) => item.month);
   const datasetYearLabel = datasetYear || 'Année inconnue';
   const datasetRangeLabel = buildRangeLabel(monthsWithData, datasetYear);
@@ -83,6 +90,11 @@ const GlobalOverview = ({ stats, datasetYear }) => {
     return data;
   }, [stats.months_order, stats.dechetteries, categories]);
 
+  const smoothedMonthlyFluxData = useMemo(
+    () => smoothTimeSeries(monthlyFluxData, categories, 7),
+    [monthlyFluxData, categories]
+  );
+
   const finalMonthlyData = useMemo(() => {
     const data = (stats.months_order || []).map((month) => {
       const entry = { month };
@@ -100,6 +112,11 @@ const GlobalOverview = ({ stats, datasetYear }) => {
     
     return data;
   }, [stats.months_order, stats.dechetteries, finalFluxes]);
+
+  const smoothedFinalMonthlyData = useMemo(
+    () => smoothTimeSeries(finalMonthlyData, finalFluxes, 7),
+    [finalMonthlyData, finalFluxes]
+  );
 
   const toggleCategory = (cat) => {
     setVisible((prev) => {
@@ -221,16 +238,16 @@ const GlobalOverview = ({ stats, datasetYear }) => {
           <AccordionContent>
             <div className="space-y-4 pt-2">
               <MonthlyLineChart
-                title="Évolution mensuelle globale"
-                description={`Total collecté par mois (kg) • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
-                data={monthlyData}
+                title="Évolution globale"
+                description={`Total collecté par date (kg) • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
+                data={smoothedMonthlyData}
                 datasetYear={datasetYear}
               />
 
               <MultiLineChart
-                title="Évolution mensuelle par flux"
+                title="Évolution par flux"
                 description={`Toutes les déchetteries · kg • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
-                data={monthlyFluxData}
+                data={smoothedMonthlyFluxData}
                 categories={categories}
                 colorMap={colorMap}
                 visible={visible}
@@ -247,7 +264,7 @@ const GlobalOverview = ({ stats, datasetYear }) => {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={240}>
-                    <LineChart data={finalMonthlyData}>
+                    <LineChart data={smoothedFinalMonthlyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} />
@@ -259,7 +276,7 @@ const GlobalOverview = ({ stats, datasetYear }) => {
                       {finalFluxes.map((flux) => (
                         <Line
                           key={flux}
-                          type="monotone"
+                          type="monotoneX"
                           dataKey={flux}
                           stroke={finalFluxColorMap[flux] || '#3b82f6'}
                           strokeWidth={2}
@@ -271,6 +288,73 @@ const GlobalOverview = ({ stats, datasetYear }) => {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Section Heatmap */}
+        <AccordionItem value="heatmap">
+          <AccordionTrigger className="text-lg font-semibold">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              <span>Heatmap des flux</span>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-6 pt-2">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {categories.map((cat) => (
+                  <FluxCalendarHeatmap
+                    key={cat}
+                    title={cat}
+                    description={`Poids journalier (kg) • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
+                    series={Object.fromEntries(
+                      (stats.months_order || []).map((date) => [
+                        date,
+                        Object.values(stats.dechetteries || {}).reduce(
+                          (sum, d) => sum + (d.months?.[date]?.[cat] || 0),
+                          0
+                        )
+                      ])
+                    )}
+                    dateRange={{ start: stats.date_start, end: stats.date_end }}
+                  />
+                ))}
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {finalFluxes.map((flux) => (
+                  <FluxCalendarHeatmap
+                    key={flux}
+                    title={flux}
+                    description={`Poids journalier (kg) • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
+                    series={Object.fromEntries(
+                      (stats.months_order || []).map((date) => [
+                        date,
+                        Object.values(stats.dechetteries || {}).reduce(
+                          (sum, d) => sum + (d.months?.[date]?.[flux] || 0),
+                          0
+                        )
+                      ])
+                    )}
+                    dateRange={{ start: stats.date_start, end: stats.date_end }}
+                  />
+                ))}
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Section Statistiques avancées */}
+        <AccordionItem value="advanced">
+          <AccordionTrigger className="text-lg font-semibold">
+            <div className="flex items-center gap-2">
+              <LineChartIcon className="h-5 w-5" />
+              <span>Statistiques avancées</span>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <AdvancedStatsPanel />
             </div>
           </AccordionContent>
         </AccordionItem>

@@ -91,11 +91,12 @@ export const downloadFile = (filename, filePath = null) => {
  * @param {string} filename - Nom du fichier (peut contenir le chemin)
  * @returns {Promise} Statistiques du fichier
  */
-export const getStats = async (filename) => {
+export const getStats = async (filename = null) => {
   try {
-    // Encoder le nom de fichier pour l'URL (les espaces deviennent %20)
-    const encodedFilename = encodeURIComponent(filename);
-    const response = await api.get(`/stats/${encodedFilename}`);
+    const url = filename
+      ? `/stats/${encodeURIComponent(filename)}`
+      : '/stats';
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -126,6 +127,170 @@ export const generateAnnualFile = async (year = 2025) => {
   } catch (error) {
     if (error.response) {
       throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la génération du fichier annuel');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+/**
+ * Ingestion des fichiers Excel du dossier input/ dans la base
+ * @param {boolean} force - Réimporter même si déjà ingéré
+ */
+export const importRawData = async (force = false) => {
+  try {
+    const response = await api.post('/db/import', { force });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de l\'ingestion');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+/**
+ * Statut de la base de données
+ */
+export const getDbStatus = async () => {
+  try {
+    const response = await api.get('/db/status');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du statut DB');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+/**
+ * Récupère les données brutes depuis la base
+ * @param {number} limit - Nombre de lignes
+ * @param {number} offset - Décalage
+ */
+export const getRawData = async (limit = 50, offset = 0) => {
+  try {
+    const response = await api.get('/db/raw', {
+      params: { limit, offset }
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des données brutes');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const rebuildAggregates = async () => {
+  try {
+    const response = await api.post('/db/rebuild-aggregates');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la reconstruction');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAdvancedSeries = async (granularity = 'day') => {
+  try {
+    const response = await api.get('/stats/advanced/series', { params: { granularity } });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des séries');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAdvancedCategory = async () => {
+  try {
+    const response = await api.get('/stats/advanced/category');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des catégories');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAdvancedFluxOrientation = async () => {
+  try {
+    const response = await api.get('/stats/advanced/flux-orientation');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des flux');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAdvancedAnomalies = async (limit = 10) => {
+  try {
+    const response = await api.get('/stats/advanced/anomalies', { params: { limit } });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des anomalies');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAdvancedMissingDays = async () => {
+  try {
+    const response = await api.get('/stats/advanced/missing-days');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des jours manquants');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAdvancedComparison = async () => {
+  try {
+    const response = await api.get('/stats/advanced/comparison');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des comparaisons');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {

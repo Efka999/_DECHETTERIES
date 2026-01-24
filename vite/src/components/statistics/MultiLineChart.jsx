@@ -24,7 +24,11 @@ const MultiLineChart = ({
         <ResponsiveContainer width="100%" height={height}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              tickFormatter={(label) => formatExactDate(label, datasetYear)}
+            />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip
               formatter={(value) => `${formatKg(value)} kg`}
@@ -43,7 +47,7 @@ const MultiLineChart = ({
             {categories.map((cat) => (
               <Line
                 key={cat}
-                type="monotone"
+                type="monotoneX"
                 dataKey={cat}
                 stroke={colorMap[cat] || '#3b82f6'}
                 strokeWidth={2}

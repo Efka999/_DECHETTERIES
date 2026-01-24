@@ -11,6 +11,17 @@ export const useStatistics = (outputFilename) => {
     setLoading(true);
     setError(null);
     try {
+      // Try DB-backed stats first
+      try {
+        const dbResult = await getStats();
+        if (dbResult && dbResult.success) {
+          setStats(dbResult.stats);
+          return;
+        }
+      } catch (dbError) {
+        console.log('DB stats unavailable, fallback to Excel outputs.');
+      }
+
       // If provided filename, try that first
       if (outputFilename) {
         const filename = outputFilename.includes('/')
@@ -119,7 +130,7 @@ export const useStatistics = (outputFilename) => {
           // Ignore storage failures
         }
       } else {
-        setError('Aucun fichier de statistiques trouvé (T1 ou T2). Veuillez générer les fichiers de sortie d\'abord.');
+        setError('Aucune statistique disponible. Importez les données brutes ou générez les fichiers de sortie.');
       }
     } catch (err) {
       console.error('Error loading stats:', err);

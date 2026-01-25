@@ -50,119 +50,138 @@ def _resolve_columns(columns):
     return resolved
 
 
-def ingest_all_input(force=False, rebuild=True):
-    init_db()
+def _format_raw_date(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    try:
+        parsed = pd.to_datetime(value, errors='coerce', dayfirst=True, infer_datetime_format=True)
+        if pd.notna(parsed):
+            return parsed.strftime('%d/%m/%Y')
+    except Exception:
+        pass
+    return str(value)
+
+
+def ingest_all_input(force=False, rebuild=True, year=None):
+    if year is not None:
+        init_db(year)
     project_root, input_dir, _ = _get_project_paths()
     input_dir.mkdir(parents=True, exist_ok=True)
 
     excel_files = list(input_dir.glob('*.xlsx')) + list(input_dir.glob('*.xls'))
     results = []
 
-    with get_connection() as conn:
-        cursor = conn.cursor()
+    for file_path in excel_files:
+        file_hash = _hash_file(file_path)
 
-        for file_path in excel_files:
-            file_hash = _hash_file(file_path)
-            existing = cursor.execute(
-                "SELECT id FROM import_files WHERE file_hash = ?",
-                (file_hash,)
-            ).fetchone()
+        try:
+            excel_file = pd.ExcelFile(file_path)
+        except Exception as exc:
+            results.append({
+                'filename': file_path.name,
+                'status': 'error',
+                'error': f"Impossible de lire le fichier: {exc}"
+            })
+            continue
 
-            if existing and not force:
-                results.append({
-                    'filename': file_path.name,
-                    'status': 'skipped',
-                    'reason': 'already_imported'
-                })
-                continue
+        per_year_rows = {}
+        total_rows = 0
+        valid_sheets = 0
 
-            if existing and force:
-                cursor.execute("DELETE FROM raw_collectes WHERE file_id = ?", (existing['id'],))
-                cursor.execute("DELETE FROM import_files WHERE id = ?", (existing['id'],))
-                conn.commit()
-
+        for sheet_name in excel_file.sheet_names:
             try:
-                excel_file = pd.ExcelFile(file_path)
-            except Exception as exc:
-                results.append({
-                    'filename': file_path.name,
-                    'status': 'error',
-                    'error': f"Impossible de lire le fichier: {exc}"
-                })
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+            except Exception:
                 continue
 
-            total_rows = 0
-            inserted_rows = 0
-            valid_sheets = 0
+            if df.empty:
+                continue
 
-            cursor.execute(
-                """
-                INSERT INTO import_files (filename, file_hash, imported_at, row_count, sheet_count)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (file_path.name, file_hash, datetime.utcnow().isoformat(), 0, 0)
-            )
-            file_id = cursor.lastrowid
+            column_map = _resolve_columns(df.columns)
+            if not all(col in column_map for col in REQUIRED_COLUMNS):
+                continue
 
-            for sheet_name in excel_file.sheet_names:
-                try:
-                    df = pd.read_excel(file_path, sheet_name=sheet_name)
-                except Exception:
+            valid_sheets += 1
+            total_rows += len(df)
+
+            df = df.rename(columns={v: k for k, v in column_map.items()})
+
+            date_raw = df['Date']
+            parsed_dates = pd.to_datetime(date_raw, errors='coerce', dayfirst=True, infer_datetime_format=True)
+
+            numeric_mask = date_raw.apply(lambda x: isinstance(x, (int, float)) and pd.notna(x))
+            if numeric_mask.any():
+                parsed_numeric = pd.to_datetime(
+                    date_raw.where(numeric_mask),
+                    errors='coerce',
+                    unit='d',
+                    origin='1899-12-30'
+                )
+                parsed_dates = parsed_dates.where(parsed_dates.notna(), parsed_numeric)
+
+            df['Date'] = parsed_dates
+            df = df[df['Date'].notna()].copy()
+
+            df['Poids'] = pd.to_numeric(df['Poids'], errors='coerce')
+            df = df[df['Poids'].notna()].copy()
+
+            orientation_col = 'Orientation' if 'Orientation' in df.columns else None
+            df['Year'] = df['Date'].dt.year
+
+            if year is not None:
+                df = df[df['Year'] == int(year)].copy()
+
+            for _, row in df.iterrows():
+                row_year = int(row['Year'])
+                raw_value = date_raw.loc[row.name] if row.name in date_raw.index else None
+                raw_text = _format_raw_date(raw_value)
+                per_year_rows.setdefault(row_year, []).append((
+                    int(row.name) + 2,
+                    row['Date'].date().isoformat(),
+                    raw_text,
+                    str(row['Lieu collecte']) if pd.notna(row['Lieu collecte']) else '',
+                    str(row['Catégorie']) if pd.notna(row['Catégorie']) else '',
+                    str(row['Sous Catégorie']) if pd.notna(row['Sous Catégorie']) else None,
+                    str(row['Flux']) if pd.notna(row['Flux']) else '',
+                    str(row[orientation_col]) if orientation_col and pd.notna(row[orientation_col]) else None,
+                    float(row['Poids']),
+                    file_path.name,
+                    sheet_name
+                ))
+
+        if not per_year_rows:
+            results.append({
+                'filename': file_path.name,
+                'status': 'skipped',
+                'reason': 'no_valid_rows'
+            })
+            continue
+
+        for target_year, rows in per_year_rows.items():
+            init_db(target_year)
+            with get_connection(target_year) as conn:
+                cursor = conn.cursor()
+                existing = cursor.execute(
+                    "SELECT id FROM import_files WHERE file_hash = ?",
+                    (file_hash,)
+                ).fetchone()
+
+                if existing and not force:
                     continue
 
-                if df.empty:
-                    continue
+                if existing and force:
+                    cursor.execute("DELETE FROM raw_collectes WHERE file_id = ?", (existing['id'],))
+                    cursor.execute("DELETE FROM import_files WHERE id = ?", (existing['id'],))
+                    conn.commit()
 
-                column_map = _resolve_columns(df.columns)
-                if not all(col in column_map for col in REQUIRED_COLUMNS):
-                    continue
-
-                valid_sheets += 1
-                total_rows += len(df)
-
-                df = df.rename(columns={v: k for k, v in column_map.items()})
-
-                date_raw = df['Date']
-                parsed_dates = pd.to_datetime(date_raw, errors='coerce', dayfirst=True, infer_datetime_format=True)
-
-                numeric_mask = date_raw.apply(lambda x: isinstance(x, (int, float)) and pd.notna(x))
-                if numeric_mask.any():
-                    parsed_numeric = pd.to_datetime(
-                        date_raw.where(numeric_mask),
-                        errors='coerce',
-                        unit='d',
-                        origin='1899-12-30'
-                    )
-                    parsed_dates = parsed_dates.where(parsed_dates.notna(), parsed_numeric)
-
-                df['Date'] = parsed_dates
-                df = df[df['Date'].notna()].copy()
-
-                df['Poids'] = pd.to_numeric(df['Poids'], errors='coerce')
-                df = df[df['Poids'].notna()].copy()
-
-                orientation_col = 'Orientation' if 'Orientation' in df.columns else None
-
-                rows = []
-                for idx, row in df.iterrows():
-                    raw_value = row['Date']
-                    raw_text = str(raw_value) if pd.notna(raw_value) else None
-                    rows.append((
-                        int(idx) + 2,
-                        row['Date'].date().isoformat(),
-                        raw_text,
-                        str(row['Lieu collecte']) if pd.notna(row['Lieu collecte']) else '',
-                        str(row['Catégorie']) if pd.notna(row['Catégorie']) else '',
-                        str(row['Sous Catégorie']) if pd.notna(row['Sous Catégorie']) else None,
-                        str(row['Flux']) if pd.notna(row['Flux']) else '',
-                        str(row[orientation_col]) if orientation_col and pd.notna(row[orientation_col]) else None,
-                        float(row['Poids']),
-                        file_path.name,
-                        sheet_name
-                    ))
-
-                if not rows:
-                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO import_files (filename, file_hash, imported_at, row_count, sheet_count)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (file_path.name, file_hash, datetime.utcnow().isoformat(), 0, 0)
+                )
+                file_id = cursor.lastrowid
 
                 cursor.executemany(
                     """
@@ -187,33 +206,31 @@ def ingest_all_input(force=False, rebuild=True):
                         for row in rows
                     ]
                 )
-                inserted_rows += len(rows)
 
-                conn.commit()
-
-            if inserted_rows > 0:
                 cursor.execute(
                     """
                     UPDATE import_files
                     SET row_count = ?, sheet_count = ?
                     WHERE id = ?
                     """,
-                    (inserted_rows, valid_sheets, file_id)
+                    (len(rows), valid_sheets, file_id)
                 )
                 conn.commit()
-            else:
-                cursor.execute("DELETE FROM import_files WHERE id = ?", (file_id,))
-                conn.commit()
 
-            results.append({
-                'filename': file_path.name,
-                'status': 'imported' if inserted_rows > 0 else 'skipped',
-                'rows': inserted_rows,
-                'sheets': valid_sheets
-            })
+        results.append({
+            'filename': file_path.name,
+            'status': 'imported',
+            'rows': sum(len(v) for v in per_year_rows.values()),
+            'sheets': valid_sheets,
+            'years': sorted(per_year_rows.keys())
+        })
 
     if rebuild and any(r.get('status') == 'imported' for r in results):
-        rebuild_aggregates()
+        if year is not None:
+            rebuild_aggregates(year)
+        else:
+            for y in {y for r in results for y in r.get('years', [])}:
+                rebuild_aggregates(y)
 
     return {
         'success': True,

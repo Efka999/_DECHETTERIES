@@ -91,12 +91,12 @@ export const downloadFile = (filename, filePath = null) => {
  * @param {string} filename - Nom du fichier (peut contenir le chemin)
  * @returns {Promise} Statistiques du fichier
  */
-export const getStats = async (filename = null) => {
+export const getStats = async (filename = null, year = null) => {
   try {
     const url = filename
       ? `/stats/${encodeURIComponent(filename)}`
       : '/stats';
-    const response = await api.get(url);
+    const response = await api.get(url, { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -139,9 +139,13 @@ export const generateAnnualFile = async (year = 2025) => {
  * Ingestion des fichiers Excel du dossier input/ dans la base
  * @param {boolean} force - Réimporter même si déjà ingéré
  */
-export const importRawData = async (force = false) => {
+export const importRawData = async (force = false, year = null, rebuild = true) => {
   try {
-    const response = await api.post('/db/import', { force });
+    const response = await api.post(
+      '/db/import',
+      { force, rebuild, year },
+      { params: year ? { year } : undefined }
+    );
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -157,9 +161,9 @@ export const importRawData = async (force = false) => {
 /**
  * Statut de la base de données
  */
-export const getDbStatus = async () => {
+export const getDbStatus = async (year = null) => {
   try {
-    const response = await api.get('/db/status');
+    const response = await api.get('/db/status', { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -177,10 +181,10 @@ export const getDbStatus = async () => {
  * @param {number} limit - Nombre de lignes
  * @param {number} offset - Décalage
  */
-export const getRawData = async (limit = 50, offset = 0) => {
+export const getRawData = async (limit = 50, offset = 0, year = null) => {
   try {
     const response = await api.get('/db/raw', {
-      params: { limit, offset }
+      params: { limit, offset, ...(year ? { year } : {}) }
     });
     return response.data;
   } catch (error) {
@@ -194,9 +198,9 @@ export const getRawData = async (limit = 50, offset = 0) => {
   }
 };
 
-export const rebuildAggregates = async () => {
+export const rebuildAggregates = async (year = null) => {
   try {
-    const response = await api.post('/db/rebuild-aggregates');
+    const response = await api.post('/db/rebuild-aggregates', null, { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -209,9 +213,11 @@ export const rebuildAggregates = async () => {
   }
 };
 
-export const getAdvancedSeries = async (granularity = 'day') => {
+export const getAdvancedSeries = async (granularity = 'day', year = null) => {
   try {
-    const response = await api.get('/stats/advanced/series', { params: { granularity } });
+    const response = await api.get('/stats/advanced/series', {
+      params: { granularity, ...(year ? { year } : {}) }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -224,9 +230,9 @@ export const getAdvancedSeries = async (granularity = 'day') => {
   }
 };
 
-export const getAdvancedCategory = async () => {
+export const getAdvancedCategory = async (year = null) => {
   try {
-    const response = await api.get('/stats/advanced/category');
+    const response = await api.get('/stats/advanced/category', { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -239,9 +245,9 @@ export const getAdvancedCategory = async () => {
   }
 };
 
-export const getAdvancedFluxOrientation = async () => {
+export const getAdvancedFluxOrientation = async (year = null) => {
   try {
-    const response = await api.get('/stats/advanced/flux-orientation');
+    const response = await api.get('/stats/advanced/flux-orientation', { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -254,9 +260,11 @@ export const getAdvancedFluxOrientation = async () => {
   }
 };
 
-export const getAdvancedAnomalies = async (limit = 10) => {
+export const getAdvancedAnomalies = async (limit = 10, year = null) => {
   try {
-    const response = await api.get('/stats/advanced/anomalies', { params: { limit } });
+    const response = await api.get('/stats/advanced/anomalies', {
+      params: { limit, ...(year ? { year } : {}) }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -269,9 +277,9 @@ export const getAdvancedAnomalies = async (limit = 10) => {
   }
 };
 
-export const getAdvancedMissingDays = async () => {
+export const getAdvancedMissingDays = async (year = null) => {
   try {
-    const response = await api.get('/stats/advanced/missing-days');
+    const response = await api.get('/stats/advanced/missing-days', { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -284,13 +292,28 @@ export const getAdvancedMissingDays = async () => {
   }
 };
 
-export const getAdvancedComparison = async () => {
+export const getAdvancedComparison = async (year = null) => {
   try {
-    const response = await api.get('/stats/advanced/comparison');
+    const response = await api.get('/stats/advanced/comparison', { params: year ? { year } : undefined });
     return response.data;
   } catch (error) {
     if (error.response) {
       throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des comparaisons');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getAvailableYears = async () => {
+  try {
+    const response = await api.get('/db/years');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des années');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {

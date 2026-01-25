@@ -15,7 +15,7 @@ from services.advanced_stats_service import (
     get_missing_days,
     get_comparison
 )
-from services.db import get_connection, init_db
+from services.db import get_connection, init_db, get_latest_year, get_year_options
 
 
 db_bp = Blueprint('db', __name__)
@@ -26,8 +26,9 @@ def import_db():
     payload = request.get_json(silent=True) or {}
     force = bool(payload.get('force', False))
     rebuild = bool(payload.get('rebuild', True))
+    year = request.args.get('year') or payload.get('year')
     try:
-        result = ingest_all_input(force=force, rebuild=rebuild)
+        result = ingest_all_input(force=force, rebuild=rebuild, year=year)
         return jsonify(result), 200
     except Exception as exc:
         return jsonify({
@@ -39,8 +40,9 @@ def import_db():
 
 @db_bp.route('/db/status', methods=['GET'])
 def db_status():
-    init_db()
-    with get_connection() as conn:
+    year = request.args.get('year')
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         row = cursor.execute("SELECT COUNT(*) AS count FROM raw_collectes").fetchone()
         file_row = cursor.execute("SELECT COUNT(*) AS count FROM import_files").fetchone()
@@ -64,7 +66,8 @@ def db_status():
 @db_bp.route('/stats', methods=['GET'])
 def stats_from_db():
     try:
-        result = build_stats_from_db()
+        year = request.args.get('year')
+        result = build_stats_from_db(year)
         if result['success']:
             return jsonify({
                 'success': True,
@@ -87,7 +90,8 @@ def stats_from_db():
 @db_bp.route('/db/rebuild-aggregates', methods=['POST'])
 def rebuild_aggregates_endpoint():
     try:
-        result = rebuild_aggregates()
+        year = request.args.get('year')
+        result = rebuild_aggregates(year)
         return jsonify(result), 200
     except Exception as exc:
         return jsonify({
@@ -101,7 +105,8 @@ def rebuild_aggregates_endpoint():
 def advanced_series():
     granularity = request.args.get('granularity', 'day')
     try:
-        data = get_time_series(granularity)
+        year = request.args.get('year')
+        data = get_time_series(granularity, year)
         return jsonify({'success': True, 'data': data}), 200
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
@@ -110,7 +115,8 @@ def advanced_series():
 @db_bp.route('/stats/advanced/category', methods=['GET'])
 def advanced_category():
     try:
-        data = get_category_stats()
+        year = request.args.get('year')
+        data = get_category_stats(year)
         return jsonify({'success': True, 'data': data}), 200
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
@@ -119,7 +125,8 @@ def advanced_category():
 @db_bp.route('/stats/advanced/flux-orientation', methods=['GET'])
 def advanced_flux_orientation():
     try:
-        data = get_flux_orientation_matrix()
+        year = request.args.get('year')
+        data = get_flux_orientation_matrix(year)
         return jsonify({'success': True, 'data': data}), 200
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
@@ -129,7 +136,8 @@ def advanced_flux_orientation():
 def advanced_anomalies():
     limit = int(request.args.get('limit', 10))
     try:
-        data = get_anomalies(limit)
+        year = request.args.get('year')
+        data = get_anomalies(limit, year)
         return jsonify({'success': True, 'data': data}), 200
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
@@ -138,7 +146,8 @@ def advanced_anomalies():
 @db_bp.route('/stats/advanced/missing-days', methods=['GET'])
 def advanced_missing_days():
     try:
-        data = get_missing_days()
+        year = request.args.get('year')
+        data = get_missing_days(year)
         return jsonify({'success': True, 'data': data}), 200
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
@@ -147,15 +156,27 @@ def advanced_missing_days():
 @db_bp.route('/stats/advanced/comparison', methods=['GET'])
 def advanced_comparison():
     try:
-        data = get_comparison()
+        year = request.args.get('year')
+        data = get_comparison(year)
         return jsonify({'success': True, 'data': data}), 200
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
 
 
+@db_bp.route('/db/years', methods=['GET'])
+def db_years():
+    years = get_year_options()
+    return jsonify({
+        'success': True,
+        'years': years,
+        'latest': get_latest_year()
+    }), 200
+
+
 @db_bp.route('/db/raw', methods=['GET'])
 def raw_data():
-    init_db()
+    year = request.args.get('year')
+    init_db(year)
     try:
         limit = int(request.args.get('limit', 50))
         offset = int(request.args.get('offset', 0))
@@ -169,7 +190,7 @@ def raw_data():
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
 
-    with get_connection() as conn:
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         total_row = cursor.execute("SELECT COUNT(*) AS count FROM raw_collectes").fetchone()
         total = total_row['count'] if total_row else 0

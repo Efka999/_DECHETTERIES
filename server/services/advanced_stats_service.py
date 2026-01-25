@@ -37,9 +37,9 @@ def _resolve_dechetterie_name(row):
     return None
 
 
-def rebuild_aggregates():
-    init_db()
-    with get_connection() as conn:
+def rebuild_aggregates(year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM fact_daily_agg")
         cursor.execute("DELETE FROM dim_dechetterie")
@@ -97,17 +97,54 @@ def rebuild_aggregates():
     return {'success': True}
 
 
-def get_time_series(granularity='day'):
-    init_db()
-    with get_connection() as conn:
+def get_time_series(granularity='day', year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
 
         if granularity == 'week':
-            date_expr = "strftime('%Y-%W', date)"
+            date_expr = "strftime('%Y-W%W', date)"
         elif granularity == 'month':
             date_expr = "substr(date,1,7)"
         else:
             date_expr = "date"
+
+        date_bounds = cursor.execute(
+            "SELECT MIN(date) AS start_date, MAX(date) AS end_date FROM fact_daily_agg"
+        ).fetchone()
+        if not date_bounds or not date_bounds['start_date'] or not date_bounds['end_date']:
+            return []
+
+        start_date = datetime.strptime(date_bounds['start_date'], '%Y-%m-%d').date()
+        end_date = datetime.strptime(date_bounds['end_date'], '%Y-%m-%d').date()
+
+        if granularity == 'week':
+            period_start = start_date - timedelta(days=start_date.weekday())
+            periods = []
+            cursor_date = period_start
+            while cursor_date <= end_date:
+                year, week, _ = cursor_date.isocalendar()
+                periods.append(f"{year}-W{week:02d}")
+                cursor_date += timedelta(days=7)
+        elif granularity == 'month':
+            periods = []
+            cursor_date = start_date.replace(day=1)
+            while cursor_date <= end_date:
+                periods.append(cursor_date.strftime('%Y-%m'))
+                month = cursor_date.month + 1
+                year = cursor_date.year + (1 if month == 13 else 0)
+                month = 1 if month == 13 else month
+                cursor_date = cursor_date.replace(year=year, month=month)
+        else:
+            periods = [
+                (start_date + timedelta(days=i)).strftime('%Y-%m-%d')
+                for i in range((end_date - start_date).days + 1)
+            ]
+
+        dechetteries = [
+            row['name']
+            for row in cursor.execute("SELECT name FROM dim_dechetterie ORDER BY name ASC").fetchall()
+        ]
 
         rows = cursor.execute(
             f"""
@@ -121,12 +158,22 @@ def get_time_series(granularity='day'):
             """
         ).fetchall()
 
-    return [dict(row) for row in rows]
+    by_key = {(row['period'], row['dechetterie']): row['total'] for row in rows}
+    filled = []
+    for period in periods:
+        for dech in dechetteries:
+            filled.append({
+                'period': period,
+                'dechetterie': dech,
+                'total': by_key.get((period, dech), 0)
+            })
+
+    return filled
 
 
-def get_category_stats():
-    init_db()
-    with get_connection() as conn:
+def get_category_stats(year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         rows = cursor.execute(
             """
@@ -143,9 +190,9 @@ def get_category_stats():
     return [dict(row) for row in rows]
 
 
-def get_flux_orientation_matrix():
-    init_db()
-    with get_connection() as conn:
+def get_flux_orientation_matrix(year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         rows = cursor.execute(
             """
@@ -162,9 +209,9 @@ def get_flux_orientation_matrix():
     return [dict(row) for row in rows]
 
 
-def get_anomalies(limit=10):
-    init_db()
-    with get_connection() as conn:
+def get_anomalies(limit=10, year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         rows = cursor.execute(
             """
@@ -185,9 +232,9 @@ def get_anomalies(limit=10):
     return [dict(row) for row in rows]
 
 
-def get_missing_days():
-    init_db()
-    with get_connection() as conn:
+def get_missing_days(year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         date_rows = cursor.execute("SELECT DISTINCT date FROM fact_daily_agg ORDER BY date ASC").fetchall()
         if not date_rows:
@@ -221,9 +268,9 @@ def get_missing_days():
     return results
 
 
-def get_comparison():
-    init_db()
-    with get_connection() as conn:
+def get_comparison(year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         rows = cursor.execute(
             """

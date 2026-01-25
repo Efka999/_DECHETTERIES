@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getRawData } from '../services/api';
+import { getAvailableYears, getDbStatus, getRawData } from '../services/api';
 import { formatExactDate } from '../utils/statistics';
 
 const PAGE_SIZE = 50;
@@ -15,6 +15,8 @@ const RawData = () => {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(null);
 
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -23,7 +25,7 @@ const RawData = () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getRawData(PAGE_SIZE, offset);
+      const result = await getRawData(PAGE_SIZE, offset, selectedYear);
       if (result && result.success) {
         setItems(result.items || []);
         setTotal(result.total || 0);
@@ -40,7 +42,44 @@ const RawData = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset]);
+  }, [offset, selectedYear]);
+
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const result = await getAvailableYears();
+        if (result?.success) {
+          const years = result.years || [];
+          setAvailableYears(years);
+
+          if (!selectedYear) {
+            const currentYear = new Date().getFullYear();
+            const latest = result.latest || (years.length > 0 ? years[years.length - 1] : null);
+            let nextYear = latest || currentYear;
+
+            if (years.includes(currentYear)) {
+              try {
+                const status = await getDbStatus(currentYear);
+                if (!status?.success || !status?.rows) {
+                  nextYear = currentYear - 1;
+                } else {
+                  nextYear = currentYear;
+                }
+              } catch (err) {
+                nextYear = currentYear - 1;
+              }
+            }
+
+            setSelectedYear(nextYear);
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    loadYears();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const columns = useMemo(
     () => [
@@ -78,6 +117,22 @@ const RawData = () => {
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <CardTitle>Table des données</CardTitle>
             <div className="flex items-center gap-2">
+              {availableYears.length > 0 && (
+                <select
+                  value={selectedYear || ''}
+                  onChange={(event) => {
+                    setOffset(0);
+                    setSelectedYear(Number(event.target.value));
+                  }}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              )}
               <Button
                 variant="outline"
                 size="sm"

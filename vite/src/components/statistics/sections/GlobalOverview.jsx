@@ -22,7 +22,7 @@ import {
   smoothTimeSeries
 } from '../../../utils/statistics';
 
-const GlobalOverview = ({ stats, datasetYear }) => {
+const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
   const finalFluxes = useMemo(
     () => stats.final_fluxes || ['MASSICOT', 'DEMANTELEMENT', 'DECHETS ULTIMES'],
     [stats.final_fluxes]
@@ -354,7 +354,7 @@ const GlobalOverview = ({ stats, datasetYear }) => {
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              <AdvancedStatsPanel />
+              <AdvancedStatsPanel year={selectedYear || datasetYear} />
             </div>
           </AccordionContent>
         </AccordionItem>

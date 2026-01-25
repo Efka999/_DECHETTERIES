@@ -4,11 +4,102 @@ SQLite database utilities for raw collectes data.
 
 import sqlite3
 from pathlib import Path
+from datetime import datetime
+import re
 
 
-def get_db_path():
+LEGACY_DB_NAME = "collectes.db"
+
+
+def _data_dir():
     base_dir = Path(__file__).resolve().parents[1]
-    return base_dir / "data" / "collectes.db"
+    return base_dir / "data"
+
+
+def _legacy_db_path():
+    return _data_dir() / LEGACY_DB_NAME
+
+
+def _year_db_path(year):
+    return _data_dir() / f"collectes-{int(year)}.db"
+
+
+def _legacy_year():
+    legacy_path = _legacy_db_path()
+    if not legacy_path.exists():
+        return None
+    try:
+        conn = sqlite3.connect(str(legacy_path))
+        cursor = conn.cursor()
+        row = cursor.execute("SELECT MAX(date) AS max_date FROM raw_collectes").fetchone()
+        conn.close()
+        if not row or not row[0]:
+            return None
+        return int(str(row[0])[:4])
+    except Exception:
+        return None
+
+
+def get_available_years():
+    data_dir = _data_dir()
+    if not data_dir.exists():
+        return []
+    years = []
+    for db_file in data_dir.glob("collectes-*.db"):
+        match = re.match(r"collectes-(\d{4})\.db$", db_file.name)
+        if match:
+            years.append(int(match.group(1)))
+    legacy_year = _legacy_year()
+    if legacy_year and legacy_year not in years:
+        years.append(legacy_year)
+    return sorted(set(years))
+
+
+def get_latest_year():
+    years = get_available_years()
+    if years:
+        return years[-1]
+    return datetime.utcnow().year
+
+
+def get_year_options():
+    available_years = get_available_years()
+    current_year = datetime.utcnow().year
+    if available_years:
+        min_year = min(available_years)
+        max_year = max(max(available_years), current_year)
+    else:
+        min_year = current_year - 1
+        max_year = current_year
+    if min_year > max_year:
+        min_year, max_year = max_year, min_year
+    return list(range(min_year, max_year + 1))
+
+
+def get_db_path(year=None):
+    data_dir = _data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    legacy_path = _legacy_db_path()
+
+    if year is None:
+        available_years = get_available_years()
+        if available_years:
+            year = available_years[-1]
+        elif legacy_path.exists():
+            return legacy_path
+        else:
+            year = datetime.utcnow().year
+
+    year = int(year)
+    year_path = _year_db_path(year)
+    if year_path.exists():
+        return year_path
+
+    legacy_year = _legacy_year()
+    if legacy_path.exists() and legacy_year == year:
+        return legacy_path
+
+    return year_path
 
 
 def ensure_db_dir():
@@ -17,16 +108,16 @@ def ensure_db_dir():
     return db_path
 
 
-def get_connection():
-    db_path = ensure_db_dir()
+def get_connection(year=None):
+    db_path = get_db_path(year)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
 
-def init_db():
-    with get_connection() as conn:
+def init_db(year=None):
+    with get_connection(year) as conn:
         cursor = conn.cursor()
         cursor.execute(
             """

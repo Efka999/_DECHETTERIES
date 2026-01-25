@@ -436,9 +436,9 @@ def parse_output_excel(file_path):
         }
 
 
-def build_stats_from_db():
-    init_db()
-    with get_connection() as conn:
+def build_stats_from_db(year=None):
+    init_db(year)
+    with get_connection(year) as conn:
         df = pd.read_sql(
             """
             SELECT date, lieu_collecte, categorie, sous_categorie, flux, orientation, poids, source_sheet
@@ -473,7 +473,18 @@ def build_stats_from_db():
 
     df['DateKey'] = df['Date'].dt.strftime('%Y-%m-%d')
     df = df[df['DateKey'].notna()].copy()
-    date_order = sorted(df['DateKey'].unique())
+
+    date_start = df['Date'].min()
+    date_end = df['Date'].max()
+    if pd.isna(date_start) or pd.isna(date_end):
+        return {
+            'success': False,
+            'stats': None,
+            'error': "Aucune date exploitable dans les données brutes."
+        }
+
+    full_range = pd.date_range(date_start, date_end, freq='D')
+    date_order = [d.strftime('%Y-%m-%d') for d in full_range]
 
     category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
                         'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
@@ -591,8 +602,6 @@ def build_stats_from_db():
         global_totals['TOTAL'] += data['total'].get('TOTAL', 0)
         global_totals['DECHETS ULTIMES'] += data['total'].get('DECHETS ULTIMES', 0)
 
-    date_start = df['Date'].min()
-    date_end = df['Date'].max()
     dataset_year = None
     date_range_label = None
     if date_start is not None and date_end is not None:

@@ -13,7 +13,7 @@ import {
 import MonthlyLineChart from './MonthlyLineChart';
 import { formatKg, formatExactDate } from '../../utils/statistics';
 
-const AdvancedStatsPanel = () => {
+const AdvancedStatsPanel = ({ year }) => {
   const [granularity, setGranularity] = useState('day');
   const [series, setSeries] = useState([]);
   const [categoryStats, setCategoryStats] = useState([]);
@@ -27,12 +27,12 @@ const AdvancedStatsPanel = () => {
     setLoading(true);
     try {
       const [seriesRes, catRes, fluxRes, anomaliesRes, missingRes, compRes] = await Promise.all([
-        getAdvancedSeries(granularity),
-        getAdvancedCategory(),
-        getAdvancedFluxOrientation(),
-        getAdvancedAnomalies(10),
-        getAdvancedMissingDays(),
-        getAdvancedComparison()
+        getAdvancedSeries(granularity, year),
+        getAdvancedCategory(year),
+        getAdvancedFluxOrientation(year),
+        getAdvancedAnomalies(10, year),
+        getAdvancedMissingDays(year),
+        getAdvancedComparison(year)
       ]);
       setSeries(seriesRes.data || []);
       setCategoryStats(catRes.data || []);
@@ -48,7 +48,7 @@ const AdvancedStatsPanel = () => {
   useEffect(() => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [granularity]);
+  }, [granularity, year]);
 
   const globalSeries = useMemo(() => {
     const grouped = new Map();

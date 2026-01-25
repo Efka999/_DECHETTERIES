@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import SidebarNavigation from '../components/Sidebar';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '../components/ui/sidebar';
 import { useStatistics } from '../hooks/useStatistics';
+import { getAvailableYears, getDbStatus } from '../services/api';
 import GlobalOverview from '../components/statistics/sections/GlobalOverview';
 import DechetterieDetail from '../components/statistics/sections/DechetterieDetail';
 import { normalizeName } from '../utils/statistics';
@@ -16,6 +17,8 @@ const Statistics = ({ outputFilename, onBack }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [persistedFilename, setPersistedFilename] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(null);
   
   useEffect(() => {
     try {
@@ -28,9 +31,46 @@ const Statistics = ({ outputFilename, onBack }) => {
     }
   }, []);
 
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const result = await getAvailableYears();
+        if (result?.success) {
+          const years = result.years || [];
+          setAvailableYears(years);
+
+          if (!selectedYear) {
+            const currentYear = new Date().getFullYear();
+            const latest = result.latest || (years.length > 0 ? years[years.length - 1] : null);
+            let nextYear = latest || currentYear;
+
+            if (years.includes(currentYear)) {
+              try {
+                const status = await getDbStatus(currentYear);
+                if (!status?.success || !status?.rows) {
+                  nextYear = currentYear - 1;
+                } else {
+                  nextYear = currentYear;
+                }
+              } catch (err) {
+                nextYear = currentYear - 1;
+              }
+            }
+
+            setSelectedYear(nextYear);
+          }
+        }
+      } catch (err) {
+        // Ignore year loading errors
+      }
+    };
+    loadYears();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const effectiveOutputFilename = outputFilename || location.state?.outputFilename || persistedFilename;
   const handleBack = onBack || (() => navigate('/'));
-  const { stats, loading, error, datasetYear } = useStatistics(effectiveOutputFilename);
+  const { stats, loading, error, datasetYear } = useStatistics(effectiveOutputFilename, selectedYear);
   const [selectedKey, setSelectedKey] = useState('global');
 
   useEffect(() => {
@@ -71,28 +111,7 @@ const Statistics = ({ outputFilename, onBack }) => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <GlobalHeader />
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
-          <Card>
-            <CardContent className="py-8">
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-              <Button onClick={handleBack} className="mt-4" variant="outline">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Retour
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (!stats) {
+  if (!stats && !error) {
     return null;
   }
 
@@ -113,6 +132,19 @@ const Statistics = ({ outputFilename, onBack }) => {
                 <p className="text-muted-foreground">Gestion des recycleries · analyses par déchetterie</p>
               </div>
               <div className="flex items-center gap-2">
+                {availableYears.length > 0 && (
+                  <select
+                    value={selectedYear || ''}
+                    onChange={(event) => setSelectedYear(Number(event.target.value))}
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <SidebarTrigger />
                 <Button onClick={handleBack} variant="outline">
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -121,14 +153,22 @@ const Statistics = ({ outputFilename, onBack }) => {
               </div>
             </div>
 
-            {selectedDechetterie ? (
+            {error ? (
+              <Card>
+                <CardContent className="py-8">
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
+            ) : selectedDechetterie ? (
               <DechetterieDetail
                 stats={stats}
                 dechetterieName={selectedDechetterie}
                 datasetYear={datasetYear}
               />
             ) : (
-              <GlobalOverview stats={stats} datasetYear={datasetYear} />
+              <GlobalOverview stats={stats} datasetYear={datasetYear} selectedYear={selectedYear} />
             )}
           </div>
         </SidebarInset>

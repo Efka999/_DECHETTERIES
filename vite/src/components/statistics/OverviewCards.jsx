@@ -24,7 +24,7 @@ const OverviewCards = ({ stats, monthlyData }) => {
       <StatCard
         title="Période"
         value={data.length}
-        description="Jours avec données"
+        description="Jours (plage complète)"
         icon={TrendingUp}
       />
     </div>

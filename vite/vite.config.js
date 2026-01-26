@@ -98,7 +98,10 @@ export default defineConfig({
   // - Si votre app est à la racine (https://username.github.io/), laissez vide ou commentez
   // - Si votre app est dans un sous-dossier (https://username.github.io/repo-name/),
   //   décommentez et définissez: base: '/repo-name/'
-  // base: '/_DECHETTERIES/',
+  // Base path pour GitHub Pages
+  // Si votre app est à la racine (https://username.github.io/): base: '/'
+  // Si votre app est dans un sous-dossier (https://username.github.io/repo-name/): base: '/repo-name/'
+  base: process.env.VITE_BASE_PATH || '/',
   build: {
     outDir: 'dist',
     sourcemap: false,

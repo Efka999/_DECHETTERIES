@@ -44,6 +44,11 @@ jobs:
           # Exemple: https://gdr-dump-backend.onrender.com
           # Si le secret n'existe pas, la valeur par défaut sera utilisée
           VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://gdr-dump-backend.onrender.com' }}
+          # Base path pour GitHub Pages - ajustez selon votre URL GitHub Pages
+          # Si votre app est à la racine (https://username.github.io/), laissez la valeur par défaut '/'
+          # Si votre app est dans un sous-dossier (https://username.github.io/_DECHETTERIES/), 
+          #   créez un secret VITE_BASE_PATH avec la valeur '/_DECHETTERIES/'
+          VITE_BASE_PATH: ${{ secrets.VITE_BASE_PATH || '/' }}
         run: npm run build
 
       - name: Setup Pages

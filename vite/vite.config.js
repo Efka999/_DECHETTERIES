@@ -95,29 +95,30 @@ export default defineConfig({
     },
   },
   // Base path pour GitHub Pages
-  // Détection automatique depuis GITHUB_REPOSITORY ou utilisation de la valeur par défaut
+  // Priorité: VITE_BASE_PATH > GITHUB_REPOSITORY > fallback
   base: (() => {
-    // Si VITE_BASE_PATH est explicitement défini, l'utiliser (priorité)
+    // 1. Si VITE_BASE_PATH est explicitement défini, l'utiliser (priorité absolue)
     if (process.env.VITE_BASE_PATH) {
-      console.log(`[Vite] Base path depuis VITE_BASE_PATH: ${process.env.VITE_BASE_PATH}`);
-      return process.env.VITE_BASE_PATH;
+      const base = process.env.VITE_BASE_PATH;
+      console.log(`[Vite] Base path depuis VITE_BASE_PATH: "${base}"`);
+      return base;
     }
-    // Détection automatique depuis GITHUB_REPOSITORY (format: owner/repo-name)
+    // 2. Détection automatique depuis GITHUB_REPOSITORY (format: owner/repo-name)
     if (process.env.GITHUB_REPOSITORY) {
       const repoName = process.env.GITHUB_REPOSITORY.split('/')[1];
-      console.log(`[Vite] Repository détecté: ${repoName}`);
+      console.log(`[Vite] Repository détecté: "${repoName}"`);
       // Si le repo se termine par .github.io, c'est un site utilisateur (racine)
       if (repoName.endsWith('.github.io')) {
-        console.log(`[Vite] Site utilisateur détecté, base path: /`);
+        console.log(`[Vite] Site utilisateur détecté, base path: "/"`);
         return '/';
       }
       // Sinon, c'est un projet (sous-dossier)
       const basePath = `/${repoName}/`;
-      console.log(`[Vite] Projet détecté, base path: ${basePath}`);
+      console.log(`[Vite] Projet détecté, base path: "${basePath}"`);
       return basePath;
     }
-    // Fallback: /_DECHETTERIES/ car c'est le nom du repository
-    console.log(`[Vite] Aucune détection, utilisation du fallback: /_DECHETTERIES/`);
+    // 3. Fallback: /_DECHETTERIES/ car c'est le nom du repository
+    console.log(`[Vite] Aucune détection, utilisation du fallback: "/_DECHETTERIES/"`);
     return '/_DECHETTERIES/';
   })(),
   build: {

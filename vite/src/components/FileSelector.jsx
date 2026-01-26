@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Upload, File, X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 const FileSelector = ({ onFileSelect, disabled }) => {
   const fileInputRef = useRef(null);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Progress } from './ui/progress';
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 const ProgressBar = ({ progress, message, isComplete, isError }) => {
   if (!message && !isComplete && !isError && progress === null) {

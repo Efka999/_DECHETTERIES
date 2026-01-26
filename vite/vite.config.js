@@ -1,4 +1,4 @@
-﻿import { defineConfig } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -93,8 +93,10 @@ export default defineConfig({
       },
     },
   },
-  // Base path pour GitHub Pages (à ajuster selon votre URL)
-  // Si votre app est à la racine, laissez vide ou commentez
+  // Base path pour GitHub Pages
+  // - Si votre app est à la racine (https://username.github.io/), laissez vide ou commentez
+  // - Si votre app est dans un sous-dossier (https://username.github.io/repo-name/),
+  //   décommentez et définissez: base: '/repo-name/'
   // base: '/_DECHETTERIES/',
   build: {
     outDir: 'dist',

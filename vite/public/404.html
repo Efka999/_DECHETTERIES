@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2196F3" />
+    <meta
+      name="description"
+      content="GDR Dump (Beta) - Outil de transformation des données déchetteries"
+    />
+    <title>GDR Dump (Beta)</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <script>
+      // GitHub Pages redirige les 404 vers ce fichier
+      // On redirige vers index.html pour que React Router gère la route
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      // Rediriger vers index.html avec la route originale
+      window.location.replace('/index.html' + path.replace(/^\/404\.html$/, '') + search + hash);
+    </script>
+  </head>
+  <body>
+    <noscript>Vous devez activer JavaScript pour utiliser cette application.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

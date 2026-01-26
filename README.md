@@ -541,3 +541,70 @@ python scripts/transform_collectes.py
 ```
 
 C'est aussi simple que ça ! 🎉
+
+## 🚀 Déploiement
+
+### Backend sur Render
+
+1. **Créer un compte Render** : [https://render.com](https://render.com)
+
+2. **Connecter le repository GitHub** :
+   - Dans le dashboard Render, cliquez sur "New" > "Web Service"
+   - Connectez votre repository GitHub
+   - Render détectera automatiquement le fichier `render.yaml`
+
+3. **Configuration automatique** :
+   - Le fichier `render.yaml` configure automatiquement :
+     - Le service Python avec Gunicorn
+     - Le disque persistant pour `input/`, `output/`, et `server/data/`
+     - Les variables d'environnement de base
+
+4. **Configurer la variable d'environnement `FRONTEND_URL`** :
+   - Une fois le backend déployé, allez dans Render Dashboard > Environment
+   - Ajoutez la variable `FRONTEND_URL` avec l'URL de votre frontend GitHub Pages
+   - Exemple : `https://username.github.io/` ou `https://username.github.io/repo-name/`
+   - Cette URL sera utilisée pour configurer CORS
+
+5. **Note** : Le disque persistant est monté à `/opt/render/project/src` et contient :
+   - `input/` : fichiers Excel d'entrée
+   - `output/` : fichiers Excel générés
+   - `server/data/` : bases de données SQLite
+
+### Frontend sur GitHub Pages
+
+1. **Activer GitHub Pages** :
+   - Allez dans votre repository GitHub > Settings > Pages
+   - Source : "GitHub Actions"
+   - Le workflow `.github/workflows/deploy.yml` se déclenchera automatiquement
+
+2. **Configurer le secret `VITE_API_URL`** :
+   - Allez dans Settings > Secrets and variables > Actions
+   - Cliquez sur "New repository secret"
+   - Nom : `VITE_API_URL`
+   - Valeur : l'URL de votre backend Render (ex: `https://gdr-dump-backend.onrender.com`)
+   - Si le secret n'est pas défini, la valeur par défaut sera utilisée
+
+3. **Déclencher le déploiement** :
+   - Le workflow se déclenche automatiquement à chaque push sur `main`
+   - Ou déclenchez-le manuellement : Actions > "Deploy to GitHub Pages" > "Run workflow"
+
+4. **Configuration du base path** (si nécessaire) :
+   - Si votre app est dans un sous-dossier (ex: `https://username.github.io/repo-name/`)
+   - Décommentez et modifiez `base` dans `vite/vite.config.js` :
+     ```js
+     base: '/repo-name/'
+     ```
+
+5. **Support des routes SPA** :
+   - Le fichier `vite/public/404.html` gère automatiquement les routes React Router
+   - GitHub Pages redirige les 404 vers ce fichier qui charge l'application
+
+### URLs de production
+
+Après déploiement, vous aurez :
+- **Backend** : `https://gdr-dump-backend.onrender.com` (ou votre URL Render personnalisée)
+- **Frontend** : `https://username.github.io/` (ou votre URL GitHub Pages)
+
+N'oubliez pas de configurer :
+- `FRONTEND_URL` dans Render avec l'URL GitHub Pages
+- `VITE_API_URL` dans GitHub Secrets avec l'URL Render (optionnel, valeur par défaut disponible)

@@ -115,8 +115,13 @@ def _get_project_paths():
             if (cwd / 'output').exists():
                 project_root = cwd
             else:
-                # Dernier recours : utiliser le chemin calculé depuis le fichier
-                project_root = potential_root
+                # Méthode 4 : Fallback Render (disque persistant monté à /opt/render/project/src)
+                render_path = Path('/opt/render/project/src')
+                if render_path.exists() and (render_path / 'server').exists():
+                    project_root = render_path
+                else:
+                    # Dernier recours : utiliser le chemin calculé depuis le fichier
+                    project_root = potential_root
     
     input_dir = project_root / 'input'
     output_dir = project_root / 'output'

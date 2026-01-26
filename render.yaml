@@ -10,7 +10,8 @@ services:
       - key: PORT
         value: 10000
       - key: FRONTEND_URL
-        sync: false  # À définir manuellement après déploiement GitHub Pages
+        sync: false  # À définir manuellement dans Render Dashboard après déploiement GitHub Pages
+        # Exemple: https://username.github.io/ ou https://username.github.io/repo-name/
     disk:
       name: gdr-dump-disk
       mountPath: /opt/render/project/src

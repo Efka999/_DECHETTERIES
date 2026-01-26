@@ -39,7 +39,11 @@ jobs:
       - name: Build
         working-directory: vite
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://dechetteries-backend.onrender.com' }}
+          # VITE_API_URL peut être configuré dans GitHub Settings > Secrets and variables > Actions
+          # Créez un secret nommé "VITE_API_URL" avec l'URL de votre backend Render
+          # Exemple: https://gdr-dump-backend.onrender.com
+          # Si le secret n'existe pas, la valeur par défaut sera utilisée
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://gdr-dump-backend.onrender.com' }}
         run: npm run build
 
       - name: Setup Pages

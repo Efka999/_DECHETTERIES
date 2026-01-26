@@ -74,6 +74,23 @@ function loadHttpsConfig() {
   }
 }
 
+// Calculer le base path une seule fois
+const getBasePath = () => {
+  // En production (build), utiliser VITE_BASE_PATH ou fallback
+  if (process.env.VITE_BASE_PATH) {
+    return process.env.VITE_BASE_PATH;
+  }
+  // En développement, pas de base path (proxy Vite gère les chemins)
+  if (process.env.NODE_ENV !== 'production') {
+    return '/';
+  }
+  // En production sans VITE_BASE_PATH, utiliser le fallback
+  return '/_DECHETTERIES/';
+};
+
+const basePath = getBasePath();
+console.log(`[Vite Config] Base path: "${basePath}"`);
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -94,9 +111,9 @@ export default defineConfig({
       },
     },
   },
-  // Base path pour GitHub Pages - FORCER à /_DECHETTERIES/
-  // Vite préfixe automatiquement tous les assets avec ce base path
-  base: process.env.VITE_BASE_PATH || '/_DECHETTERIES/',
+  // Base path pour GitHub Pages
+  // Vite préfixe automatiquement tous les assets avec ce base path lors du build
+  base: basePath,
   build: {
     outDir: 'dist',
     sourcemap: false,

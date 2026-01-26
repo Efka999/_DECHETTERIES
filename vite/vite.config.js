@@ -94,14 +94,27 @@ export default defineConfig({
       },
     },
   },
-  // Base path pour GitHub Pages
-  // - Si votre app est à la racine (https://username.github.io/), laissez vide ou commentez
-  // - Si votre app est dans un sous-dossier (https://username.github.io/repo-name/),
-  //   décommentez et définissez: base: '/repo-name/'
-  // Base path pour GitHub Pages
-  // Si votre app est à la racine (https://username.github.io/): base: '/'
-  // Si votre app est dans un sous-dossier (https://username.github.io/repo-name/): base: '/repo-name/'
-  base: process.env.VITE_BASE_PATH || '/',
+  // Base path pour GitHub Pages - détection automatique du nom du repository
+  // Si VITE_BASE_PATH est défini, l'utiliser
+  // Sinon, détecter automatiquement depuis GITHUB_REPOSITORY ou utiliser le nom par défaut
+  base: (() => {
+    if (process.env.VITE_BASE_PATH) {
+      return process.env.VITE_BASE_PATH;
+    }
+    // Détection automatique depuis GITHUB_REPOSITORY (format: owner/repo-name)
+    if (process.env.GITHUB_REPOSITORY) {
+      const repoName = process.env.GITHUB_REPOSITORY.split('/')[1];
+      // Si le repo se termine par .github.io, c'est un site utilisateur (racine)
+      if (repoName.endsWith('.github.io')) {
+        return '/';
+      }
+      // Sinon, c'est un projet (sous-dossier)
+      return `/${repoName}/`;
+    }
+    // Fallback: utiliser le nom du dossier parent si on est dans un repo
+    // Par défaut: /_DECHETTERIES/ car c'est le nom du repository
+    return '/_DECHETTERIES/';
+  })(),
   build: {
     outDir: 'dist',
     sourcemap: false,

@@ -94,12 +94,9 @@ export default defineConfig({
       },
     },
   },
-  // Base path pour GitHub Pages
-  // Utilise VITE_BASE_PATH si défini, sinon détecte depuis GITHUB_REPOSITORY, sinon fallback
-  base: process.env.VITE_BASE_PATH || 
-        (process.env.GITHUB_REPOSITORY && !process.env.GITHUB_REPOSITORY.split('/')[1].endsWith('.github.io') 
-          ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/` 
-          : '/_DECHETTERIES/'),
+  // Base path pour GitHub Pages - FORCER à /_DECHETTERIES/
+  // Vite préfixe automatiquement tous les assets avec ce base path
+  base: process.env.VITE_BASE_PATH || '/_DECHETTERIES/',
   build: {
     outDir: 'dist',
     sourcemap: false,

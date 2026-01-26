@@ -63,11 +63,16 @@ jobs:
           echo "=== Verifying build output ==="
           if [ -f dist/index.html ]; then
             echo "index.html found, checking asset paths:"
-            grep -o 'src="[^"]*"' dist/index.html | head -5 || echo "No src attributes found"
-            grep -o 'href="[^"]*"' dist/index.html | head -5 || echo "No href attributes found"
+            echo "--- Script tags ---"
+            grep -o '<script[^>]*src="[^"]*"' dist/index.html || echo "No script src found"
+            echo "--- Link tags ---"
+            grep -o '<link[^>]*href="[^"]*"' dist/index.html | head -3 || echo "No link href found"
             echo ""
-            echo "First 30 lines of index.html:"
-            head -30 dist/index.html
+            echo "--- Full index.html (first 40 lines) ---"
+            head -40 dist/index.html
+            echo ""
+            echo "--- Checking if base path is in assets ---"
+            grep -o '/_DECHETTERIES/assets/[^"]*' dist/index.html | head -3 || echo "WARNING: Base path /_DECHETTERIES/ not found in asset paths!"
           else
             echo "ERROR: index.html not found in dist/"
             ls -la dist/ || echo "dist/ directory not found"

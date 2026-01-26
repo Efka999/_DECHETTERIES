@@ -12,6 +12,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# Exclure vite/src/lib/ de l'ignorance (contient du code source)
+!vite/src/lib/
 parts/
 sdist/
 var/

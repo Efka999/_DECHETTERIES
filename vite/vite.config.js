@@ -94,25 +94,30 @@ export default defineConfig({
       },
     },
   },
-  // Base path pour GitHub Pages - détection automatique du nom du repository
-  // Si VITE_BASE_PATH est défini, l'utiliser
-  // Sinon, détecter automatiquement depuis GITHUB_REPOSITORY ou utiliser le nom par défaut
+  // Base path pour GitHub Pages
+  // Détection automatique depuis GITHUB_REPOSITORY ou utilisation de la valeur par défaut
   base: (() => {
+    // Si VITE_BASE_PATH est explicitement défini, l'utiliser (priorité)
     if (process.env.VITE_BASE_PATH) {
+      console.log(`[Vite] Base path depuis VITE_BASE_PATH: ${process.env.VITE_BASE_PATH}`);
       return process.env.VITE_BASE_PATH;
     }
     // Détection automatique depuis GITHUB_REPOSITORY (format: owner/repo-name)
     if (process.env.GITHUB_REPOSITORY) {
       const repoName = process.env.GITHUB_REPOSITORY.split('/')[1];
+      console.log(`[Vite] Repository détecté: ${repoName}`);
       // Si le repo se termine par .github.io, c'est un site utilisateur (racine)
       if (repoName.endsWith('.github.io')) {
+        console.log(`[Vite] Site utilisateur détecté, base path: /`);
         return '/';
       }
       // Sinon, c'est un projet (sous-dossier)
-      return `/${repoName}/`;
+      const basePath = `/${repoName}/`;
+      console.log(`[Vite] Projet détecté, base path: ${basePath}`);
+      return basePath;
     }
-    // Fallback: utiliser le nom du dossier parent si on est dans un repo
-    // Par défaut: /_DECHETTERIES/ car c'est le nom du repository
+    // Fallback: /_DECHETTERIES/ car c'est le nom du repository
+    console.log(`[Vite] Aucune détection, utilisation du fallback: /_DECHETTERIES/`);
     return '/_DECHETTERIES/';
   })(),
   build: {

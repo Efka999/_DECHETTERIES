@@ -4,8 +4,8 @@ import { cn } from '../lib/utils';
 
 const navLinkClass = ({ isActive }) =>
   cn(
-    'text-sm font-medium transition-colors hover:text-[#5ea226]',
-    isActive ? 'text-[#5ea226]' : 'text-muted-foreground'
+    'text-sm font-medium transition-colors hover:text-brand',
+    isActive ? 'text-brand' : 'text-muted-foreground'
   );
 
 function GlobalHeader() {
@@ -18,11 +18,14 @@ function GlobalHeader() {
             alt="Emmaüs Environnement"
             className="h-5 w-auto opacity-80"
           />
-          <div className="text-lg font-semibold text-[#5ea226]">GDR Dump (Beta)</div>
+          <div className="text-lg font-semibold text-brand">GDR Dump (Beta)</div>
         </div>
         <nav className="flex items-center gap-4">
           <NavLink to="/" className={navLinkClass}>
             Accueil
+          </NavLink>
+          <NavLink to="/import" className={navLinkClass}>
+            Import
           </NavLink>
           <NavLink to="/stats" className={navLinkClass}>
             Statistiques

@@ -135,6 +135,36 @@ export const generateAnnualFile = async (year = 2025) => {
   }
 };
 
+export const getInputFiles = async () => {
+  try {
+    const response = await api.get('/files/input');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des fichiers input');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getOutputFiles = async () => {
+  try {
+    const response = await api.get('/files/output');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des fichiers output');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
 /**
  * Ingestion des fichiers Excel du dossier input/ dans la base
  * @param {boolean} force - Réimporter même si déjà ingéré
@@ -150,6 +180,40 @@ export const importRawData = async (force = false, year = null, rebuild = true) 
   } catch (error) {
     if (error.response) {
       throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de l\'ingestion');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const startImportJob = async (force = false, year = null, rebuild = true) => {
+  try {
+    const response = await api.post(
+      '/db/import-jobs',
+      { force, rebuild, year },
+      { params: year ? { year } : undefined }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du lancement de l\'import');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getImportJob = async (jobId, since = 0) => {
+  try {
+    const response = await api.get(`/db/import-jobs/${jobId}`, { params: { since } });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la lecture du journal');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {
@@ -181,15 +245,30 @@ export const getDbStatus = async (year = null) => {
  * @param {number} limit - Nombre de lignes
  * @param {number} offset - Décalage
  */
-export const getRawData = async (limit = 50, offset = 0, year = null) => {
+export const getRawData = async (limit = 50, offset = 0, year = null, filters = {}) => {
   try {
     const response = await api.get('/db/raw', {
-      params: { limit, offset, ...(year ? { year } : {}) }
+      params: { limit, offset, ...(year ? { year } : {}), ...(filters || {}) }
     });
     return response.data;
   } catch (error) {
     if (error.response) {
       throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des données brutes');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getRawOptions = async (year = null) => {
+  try {
+    const response = await api.get('/db/raw/options', { params: year ? { year } : undefined });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des options');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {

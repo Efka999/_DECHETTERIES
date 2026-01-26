@@ -11,7 +11,7 @@ function NotFound() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <GlobalHeader />
-      <div className="max-w-4xl mx-auto min-h-[calc(100vh-2rem)] flex flex-col p-4 md:p-8">
+      <div className="max-w-6xl mx-auto min-h-[calc(100vh-2rem)] flex flex-col p-4 md:p-8">
         <main className="flex-1 flex items-center justify-center">
           <Card className="w-full max-w-md text-center">
             <CardHeader>
@@ -33,7 +33,7 @@ function NotFound() {
                 <Button
                   onClick={() => navigate('/')}
                   size="lg"
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto bg-brand text-brand-foreground hover:bg-brand/90"
                 >
                   <Home className="mr-2 h-4 w-4" />
                   Retour à l'accueil

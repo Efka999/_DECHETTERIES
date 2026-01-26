@@ -54,7 +54,7 @@ def _format_raw_date(value):
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
     try:
-        parsed = pd.to_datetime(value, errors='coerce', dayfirst=True, infer_datetime_format=True)
+        parsed = pd.to_datetime(value, errors='coerce', dayfirst=True)
         if pd.notna(parsed):
             return parsed.strftime('%d/%m/%Y')
     except Exception:
@@ -62,7 +62,7 @@ def _format_raw_date(value):
     return str(value)
 
 
-def ingest_all_input(force=False, rebuild=True, year=None):
+def ingest_all_input(force=False, rebuild=True, year=None, progress=None):
     if year is not None:
         init_db(year)
     project_root, input_dir, _ = _get_project_paths()
@@ -70,6 +70,9 @@ def ingest_all_input(force=False, rebuild=True, year=None):
 
     excel_files = list(input_dir.glob('*.xlsx')) + list(input_dir.glob('*.xls'))
     results = []
+
+    total_expected = 0
+    current_rows = 0
 
     for file_path in excel_files:
         file_hash = _hash_file(file_path)
@@ -87,6 +90,15 @@ def ingest_all_input(force=False, rebuild=True, year=None):
         per_year_rows = {}
         total_rows = 0
         valid_sheets = 0
+        total_rows_valid_sheets = 0
+        missing_columns = set()
+        file_expected_rows = 0
+
+        if progress:
+            progress({
+                'event': 'file',
+                'message': f"Lecture du fichier {file_path.name}"
+            })
 
         for sheet_name in excel_file.sheet_names:
             try:
@@ -99,15 +111,19 @@ def ingest_all_input(force=False, rebuild=True, year=None):
 
             column_map = _resolve_columns(df.columns)
             if not all(col in column_map for col in REQUIRED_COLUMNS):
+                missing_columns.update(
+                    col for col in REQUIRED_COLUMNS if col not in column_map
+                )
                 continue
 
             valid_sheets += 1
             total_rows += len(df)
+            total_rows_valid_sheets += len(df)
 
             df = df.rename(columns={v: k for k, v in column_map.items()})
 
             date_raw = df['Date']
-            parsed_dates = pd.to_datetime(date_raw, errors='coerce', dayfirst=True, infer_datetime_format=True)
+            parsed_dates = pd.to_datetime(date_raw, errors='coerce', dayfirst=True)
 
             numeric_mask = date_raw.apply(lambda x: isinstance(x, (int, float)) and pd.notna(x))
             if numeric_mask.any():
@@ -131,6 +147,9 @@ def ingest_all_input(force=False, rebuild=True, year=None):
             if year is not None:
                 df = df[df['Year'] == int(year)].copy()
 
+            file_expected_rows += len(df)
+            total_expected += len(df)
+
             for _, row in df.iterrows():
                 row_year = int(row['Year'])
                 raw_value = date_raw.loc[row.name] if row.name in date_raw.index else None
@@ -148,12 +167,43 @@ def ingest_all_input(force=False, rebuild=True, year=None):
                     file_path.name,
                     sheet_name
                 ))
+                current_rows += 1
+                if progress:
+                    progress({
+                        'event': 'row',
+                        'current': current_rows,
+                        'total': total_expected,
+                        'row': {
+                            'file': file_path.name,
+                            'sheet': sheet_name,
+                            'row_index': int(row.name) + 2,
+                            'date': row['Date'].date().isoformat(),
+                            'date_raw': raw_text,
+                            'lieu_collecte': str(row['Lieu collecte']) if pd.notna(row['Lieu collecte']) else '',
+                            'flux': str(row['Flux']) if pd.notna(row['Flux']) else '',
+                            'poids': float(row['Poids'])
+                        }
+                    })
+
+        if progress and file_expected_rows:
+            progress({
+                'event': 'info',
+                'message': f"{file_path.name} • {file_expected_rows} lignes valides détectées"
+            })
 
         if not per_year_rows:
+            error_reason = 'no_valid_rows'
+            error_message = None
+            if missing_columns:
+                error_reason = 'missing_columns'
+                error_message = f"Colonnes manquantes: {', '.join(sorted(missing_columns))}"
             results.append({
                 'filename': file_path.name,
-                'status': 'skipped',
-                'reason': 'no_valid_rows'
+                'status': 'error',
+                'reason': error_reason,
+                'error': error_message,
+                'rows': 0,
+                'invalid_rows': total_rows_valid_sheets
             })
             continue
 
@@ -217,10 +267,14 @@ def ingest_all_input(force=False, rebuild=True, year=None):
                 )
                 conn.commit()
 
+        total_valid_rows = sum(len(v) for v in per_year_rows.values())
+        invalid_rows = max(0, total_rows_valid_sheets - total_valid_rows)
+
         results.append({
             'filename': file_path.name,
             'status': 'imported',
-            'rows': sum(len(v) for v in per_year_rows.values()),
+            'rows': total_valid_rows,
+            'invalid_rows': invalid_rows,
             'sheets': valid_sheets,
             'years': sorted(per_year_rows.keys())
         })

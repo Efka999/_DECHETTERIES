@@ -4,7 +4,7 @@ import GlobalHeader from '../components/GlobalHeader';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import SidebarNavigation from '../components/Sidebar';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '../components/ui/sidebar';
 import { useStatistics } from '../hooks/useStatistics';
@@ -99,10 +99,10 @@ const Statistics = ({ outputFilename, onBack }) => {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <GlobalHeader />
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
+        <div className="max-w-6xl mx-auto p-4 md:p-8">
           <Card>
             <CardContent className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-[#5ea226]" />
+              <Loader2 className="w-8 h-8 animate-spin text-brand" />
               <span className="ml-3 text-lg text-foreground">Chargement des statistiques...</span>
             </CardContent>
           </Card>
@@ -125,7 +125,7 @@ const Statistics = ({ outputFilename, onBack }) => {
           availableDechetteries={availableDechetteries}
         />
         <SidebarInset className="p-3 md:p-4">
-          <div className="w-full max-w-none space-y-6">
+          <div className="w-full max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold">Statistiques des Collectes</h1>
@@ -145,12 +145,11 @@ const Statistics = ({ outputFilename, onBack }) => {
                     ))}
                   </select>
                 )}
-                <SidebarTrigger />
-                <Button onClick={handleBack} variant="outline">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Retour
-                </Button>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <SidebarTrigger />
             </div>
 
             {error ? (
@@ -171,6 +170,16 @@ const Statistics = ({ outputFilename, onBack }) => {
               <GlobalOverview stats={stats} datasetYear={datasetYear} selectedYear={selectedYear} />
             )}
           </div>
+          <footer className="mt-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-center">
+              <img
+                src="/logo.svg"
+                alt="Emmaüs Environnement"
+                className="h-6 w-auto opacity-80"
+              />
+              <p>© Christophe GUY 2026</p>
+            </div>
+          </footer>
         </SidebarInset>
       </SidebarProvider>
     </div>

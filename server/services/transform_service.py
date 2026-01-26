@@ -263,3 +263,67 @@ def cleanup_temp_file(file_path):
     except Exception as e:
         # Ignorer les erreurs de nettoyage
         pass
+
+
+def generate_outputs_from_input(year):
+    """
+    Génère les fichiers de sortie T1/T2 depuis le dossier input.
+    """
+    _, input_dir, output_dir = _get_project_paths()
+    input_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    excel_files = list(input_dir.glob('*.xlsx')) + list(input_dir.glob('*.xls'))
+    if not excel_files:
+        return {
+            'success': False,
+            'outputs': [],
+            'message': 'Aucun fichier Excel trouvé dans input/.',
+            'error': 'input_folder_empty'
+        }
+
+    year_str = str(year)
+    year_short = year_str[-2:]
+
+    def pick_file(token):
+        candidates = []
+        for file_path in excel_files:
+            name = file_path.name.upper()
+            if token in name and (year_str in name or year_short in name):
+                return file_path
+            if token in name:
+                candidates.append(file_path)
+        if len(candidates) == 1:
+            return candidates[0]
+        return None
+
+    outputs = []
+    for token, label in [('T1', 'T1'), ('T2', 'T2')]:
+        input_file = pick_file(token)
+        if not input_file:
+            continue
+
+        output_filename = f"COLLECTES DECHETERIES {label} {year_str}.xlsx"
+        output_path = output_dir / output_filename
+        transform_to_collectes(str(input_file), str(output_path), None, combine_all=True)
+
+        if output_path.exists() and output_path.stat().st_size > 0:
+            outputs.append({
+                'label': f'Collectes {label} {year_str}',
+                'filename': output_filename,
+                'output_path': str(output_path)
+            })
+
+    if not outputs:
+        return {
+            'success': False,
+            'outputs': [],
+            'message': 'Aucun fichier T1/T2 détecté dans input/.',
+            'error': 'input_files_missing'
+        }
+
+    return {
+        'success': True,
+        'outputs': outputs,
+        'message': 'Fichiers générés avec succès.'
+    }

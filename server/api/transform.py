@@ -11,7 +11,8 @@ import sys
 # Ajouter le chemin parent pour les imports relatifs
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.transform_service import transform_excel_file, cleanup_temp_file
+from services.transform_service import transform_excel_file, cleanup_temp_file, generate_outputs_from_input, _get_project_paths
+from datetime import datetime
 from services.stats_service import parse_output_excel
 
 api_bp = Blueprint('transform', __name__)
@@ -184,6 +185,49 @@ def download(filename):
             'message': 'Erreur lors du téléchargement',
             'error': str(e)
         }), 500
+
+
+@api_bp.route('/transform/annual', methods=['POST'])
+def transform_annual():
+    """
+    Génère les fichiers de sortie T1/T2 depuis le dossier input.
+    """
+    payload = request.get_json(silent=True) or {}
+    year = payload.get('year')
+    try:
+        year = int(year) if year else datetime.utcnow().year
+    except ValueError:
+        return jsonify({
+            'success': False,
+            'message': 'Année invalide',
+            'error': 'Le paramètre year doit être un entier'
+        }), 400
+
+    result = generate_outputs_from_input(year)
+    status = 200 if result.get('success') else 400
+    return jsonify(result), status
+
+
+@api_bp.route('/files/input', methods=['GET'])
+def list_input_files():
+    _, input_dir, _ = _get_project_paths()
+    files = [f.name for f in input_dir.glob('*.xls*')] if input_dir.exists() else []
+    return jsonify({
+        'success': True,
+        'directory': str(input_dir),
+        'files': sorted(files)
+    }), 200
+
+
+@api_bp.route('/files/output', methods=['GET'])
+def list_output_files():
+    _, _, output_dir = _get_project_paths()
+    files = [f.name for f in output_dir.glob('*.xls*')] if output_dir.exists() else []
+    return jsonify({
+        'success': True,
+        'directory': str(output_dir),
+        'files': sorted(files)
+    }), 200
 
 
 @api_bp.route('/stats/<path:filename>', methods=['GET'])

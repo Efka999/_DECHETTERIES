@@ -52,11 +52,26 @@ jobs:
           # Il est utilisé dans vite.config.js pour la détection automatique du base path
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          echo "Building with VITE_BASE_PATH=${VITE_BASE_PATH}"
-          echo "Repository: ${GITHUB_REPOSITORY}"
+          echo "=== Build Configuration ==="
+          echo "VITE_BASE_PATH=${VITE_BASE_PATH}"
+          echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}"
+          echo "VITE_API_URL=${VITE_API_URL}"
+          echo ""
+          echo "=== Building ==="
           npm run build
-          echo "Checking generated index.html..."
-          head -20 dist/index.html || echo "index.html not found in dist/"
+          echo ""
+          echo "=== Verifying build output ==="
+          if [ -f dist/index.html ]; then
+            echo "index.html found, checking asset paths:"
+            grep -o 'src="[^"]*"' dist/index.html | head -5 || echo "No src attributes found"
+            grep -o 'href="[^"]*"' dist/index.html | head -5 || echo "No href attributes found"
+            echo ""
+            echo "First 30 lines of index.html:"
+            head -30 dist/index.html
+          else
+            echo "ERROR: index.html not found in dist/"
+            ls -la dist/ || echo "dist/ directory not found"
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

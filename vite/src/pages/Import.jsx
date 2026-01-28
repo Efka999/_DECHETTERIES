@@ -98,7 +98,7 @@ function ImportPage() {
       <GlobalHeader />
       {serverStatus !== 'online' && (
         <div className="sticky top-[64px] z-[45] w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="max-w-full mx-auto px-3 md:px-4 py-3">
+          <div className="max-w-full mx-auto p-4 md:p-6 px-4 md:px-6">
             <StatusMessage
               type={serverStatus === 'offline' ? 'error' : 'info'}
               message={

@@ -105,7 +105,7 @@ export default defineConfig({
     https: loadHttpsConfig(),
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || (process.env.USE_HTTPS === 'true' ? 'https://localhost:5000' : 'http://localhost:5000'),
+        target: process.env.VITE_API_URL || 'https://localhost:5000',
         changeOrigin: true,
         secure: false, // Accepter les certificats auto-signés
       },

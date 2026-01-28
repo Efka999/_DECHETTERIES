@@ -11,7 +11,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <GlobalHeader />
-      <div className="max-w-full mx-auto h-[calc(100vh-64px)] flex flex-col p-3 md:p-4">
+      <div className="max-w-full mx-auto h-[calc(100vh-64px)] flex flex-col p-4 md:p-6 px-4 md:px-6">
         <header className="text-center mb-10">
           <div className="mb-2 flex justify-center">
             <img

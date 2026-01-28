@@ -20,12 +20,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
-try:
-    from transform_collectes import DECHETTERIE_MAPPING, map_category_to_collectes
-except ImportError:
-    DECHETTERIE_MAPPING = {}
-    def map_category_to_collectes(categorie, sous_categorie, flux, orientation=None):
-        return None
+from mappings import DECHETTERIE_MAPPING, map_category_to_collectes
 
 
 def _get_project_paths():
@@ -35,29 +30,6 @@ def _get_project_paths():
     input_dir = os.path.join(project_root, 'input')
     output_dir = os.path.join(project_root, 'output')
     return project_root, input_dir, output_dir
-
-
-def _map_dechetterie(lieu_collecte):
-    """Map lieu_collecte to standard déchetterie name."""
-    if pd.isna(lieu_collecte) or str(lieu_collecte).strip() == '':
-        return 'Pépinière'
-    
-    lieu_str = str(lieu_collecte).strip()
-    
-    # Check for APPORT VOLONTAIRE or APPORT SUR SITE
-    if lieu_str.upper() in ['APPORT VOLONTAIRE', 'APPORT SUR SITE']:
-        return 'Pépinière'
-    
-    # Check for NaN values (string representation)
-    if lieu_str.upper() in ['NAN', '']:
-        return 'Pépinière'
-    
-    # Check mapping
-    mapped = DECHETTERIE_MAPPING.get(lieu_str)
-    if mapped:
-        return mapped
-    
-    return lieu_str
 
 
 def synthesize_dump(output_file, year=2025):
@@ -192,8 +164,7 @@ def synthesize_dump(output_file, year=2025):
     # Standard columns (same as transform_collectes.py)
     category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
                        'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
-                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'PMCB',
-                       'MERCERIE', 'TEXTILE']
+                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7','MERCERIE', 'TEXTILE']
     
     month_order = ['JANVIER', 'FEVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN',
                    'JUILLET', 'AOUT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DECEMBRE']
@@ -830,8 +801,7 @@ def _apply_formatting_to_combined_file(output_file, num_dechetteries, num_months
     # Category columns order
     category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
                        'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
-                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'PMCB',
-                       'MERCERIE', 'TEXTILE']
+                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'MERCERIE', 'TEXTILE']
     
     # Find column indices for DEMANTELEMENT (index 2, column D) and MASSICOT (index 8, column J)
     demantelement_col_idx = 4  # Column D

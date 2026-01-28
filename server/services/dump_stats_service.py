@@ -15,10 +15,7 @@ project_root = current_file.parent.parent.parent
 scripts_dir = project_root / 'scripts'
 if scripts_dir.exists() and str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
-try:
-    from transform_collectes import DECHETTERIE_MAPPING
-except Exception:
-    DECHETTERIE_MAPPING = {}
+from mappings import DECHETTERIE_MAPPING, map_category_to_collectes, map_dechetterie, CATEGORY_COLUMNS, FINAL_FLUXES
 
 
 def _resolve_dechetterie_name(row):
@@ -44,16 +41,7 @@ def build_stats_from_dump_db(year=2025):
     logger = logging.getLogger(__name__)
     
     try:
-        # Import map_category_to_collectes from scripts (same as stats_service)
-        current_file = Path(__file__).resolve()
-        project_root = current_file.parent.parent.parent
-        scripts_dir = project_root / 'scripts'
-        if scripts_dir.exists() and str(scripts_dir) not in sys.path:
-            sys.path.insert(0, str(scripts_dir))
-        try:
-            from transform_collectes import map_category_to_collectes
-        except Exception:
-            map_category_to_collectes = None
+        # map_category_to_collectes is already imported at module level
         
         init_dump_db(year)
         with get_dump_connection(year) as conn:
@@ -89,8 +77,13 @@ def build_stats_from_dump_db(year=2025):
                 'error': "Aucune date valide dans les données brutes."
             }
 
-        df['Dechetterie'] = df['lieu_collecte'].map(DECHETTERIE_MAPPING)
-        df['Dechetterie'] = df['Dechetterie'].fillna(df['lieu_collecte'])
+        df['Dechetterie'] = df['lieu_collecte'].apply(map_dechetterie)
+        # Log unique locations and mappings for debugging
+        unique_locations = df['lieu_collecte'].unique()
+        logger.info(f"[DUMP STATS] Unique locations in raw data: {list(unique_locations)}")
+        unique_dechetteries_mapped = df['Dechetterie'].unique()
+        logger.info(f"[DUMP STATS] Unique déchetteries after mapping: {list(unique_dechetteries_mapped)}")
+        # Fallback: if still unmapped, use original lieu_collecte
         # Attribuer les lieux de collecte vides à Pépinière
         empty_mask = df['lieu_collecte'].isna() | (df['lieu_collecte'].astype(str).str.strip() == '')
         df.loc[empty_mask, 'Dechetterie'] = 'Pépinière'
@@ -107,14 +100,9 @@ def build_stats_from_dump_db(year=2025):
             (df['Dechetterie'].astype(str).str.upper().str.strip().eq(''))
         )
         df.loc[nan_mask, 'Dechetterie'] = 'Pépinière'
-        # Ne plus filtrer par déchetterie - inclure toutes les déchetteries
-        # Les déchetteries non standard seront incluses dans les stats
-        allowed_dechetteries = set(DECHETTERIE_MAPPING.values())
-        bym_mask = df['source_sheet'].astype(str).str.upper().str.contains('BYM', na=False) if 'source_sheet' in df.columns else False
-        # Inclure toutes les déchetteries, pas seulement celles dans le mapping
-        # (le filtre était trop restrictif et excluait des données valides)
-        logger.info(f"[DUMP STATS] Total avant filtre déchetterie: {df['poids'].sum() / 1000:.2f} tonnes")
-        logger.info(f"[DUMP STATS] Inclusion de toutes les déchetteries (pas de filtre)")
+        
+        # Log unique déchetteries after mapping
+        logger.info(f"[DUMP STATS] Total avant filtrage des données: {df['poids'].sum() / 1000:.2f} tonnes")
 
         df['DateKey'] = df['Date'].dt.strftime('%Y-%m-%d')
         total_avant_filtre_datekey = df['poids'].sum() / 1000
@@ -139,16 +127,9 @@ def build_stats_from_dump_db(year=2025):
         # Calculer le total brut avant filtrage pour diagnostic
         total_brut_avant_filtrage = df['poids'].sum() / 1000  # en tonnes
         
-        # Catégories standard (grandes catégories de flux)
-        # MASSICOT et DEMANTELEMENT sont inclus dans les catégories pour le calcul du TOTAL
-        # DECHETS ULTIMES reste un flux final séparé
-        category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
-                            'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
-                            'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'PMCB',
-                            'MERCERIE', 'TEXTILE', 'AUTRES']  # AUTRES pour les données non mappées
-        # Note: DECHETS ULTIMES est un flux final traité séparément (pas inclus dans TOTAL)
-        # MASSICOT et DEMANTELEMENT sont maintenant inclus dans category_columns pour correspondre au dump
-        final_fluxes = ['DECHETS ULTIMES']
+        # Catégories standard (récupérées depuis mappings.py)
+        category_columns = CATEGORY_COLUMNS.copy() if CATEGORY_COLUMNS else []
+        final_fluxes = FINAL_FLUXES.copy() if FINAL_FLUXES else ['DECHETS ULTIMES']
 
         if map_category_to_collectes is None:
             return {
@@ -217,7 +198,7 @@ def build_stats_from_dump_db(year=2025):
 
         unique_dechetteries = [str(d) for d in df['Dechetterie'].unique() if pd.notna(d)]
         unique_dechetteries = sorted(set(unique_dechetteries))
-        standard_order = ['Pépinière', 'Sanssac', 'St Germain', 'Polignac']
+        standard_order = ['Pépinière', 'Sanssac', 'St Germain', 'Polignac', 'Yssingeaux', 'Bas-en-Basset', 'Monistrol']
         special_cases = [d for d in unique_dechetteries if d not in standard_order]
         ordered_dechetteries = [d for d in standard_order if d in unique_dechetteries] + sorted(special_cases)
 
@@ -263,7 +244,7 @@ def build_stats_from_dump_db(year=2025):
                         pivot_df = pivot_df.merge(
                             final_fluxes_pivot[['DateKey', flux]],
                             on='DateKey',
-                            how='left'
+                            how='outer'
                         ).fillna(0)
                     else:
                         pivot_df[flux] = 0
@@ -323,8 +304,9 @@ def build_stats_from_dump_db(year=2025):
                 global_totals[col] += data['total'].get(col, 0)
             for flux in final_fluxes:
                 global_totals[flux] += data['total'].get(flux, 0)
-            # Le TOTAL inclut déjà toutes les catégories + flux finaux (calculé ci-dessus)
-            global_totals['TOTAL'] += data['total'].get('TOTAL', 0)
+        
+        # Calculer le TOTAL à partir des catégories + flux finaux (pas de double-comptage)
+        global_totals['TOTAL'] = sum(global_totals[col] for col in category_columns) + sum(global_totals[flux] for flux in final_fluxes)
 
         dataset_year = None
         date_range_label = None
@@ -350,11 +332,17 @@ def build_stats_from_dump_db(year=2025):
         logger.info(f"[DUMP STATS] Total brut attendu: {total_brut_avant_filtrage:.2f} tonnes")
         logger.info(f"[DUMP STATS] Différence: {total_brut_avant_filtrage - total_final_calcule:.2f} tonnes")
         
+        # Calculer les totaux par flux final
+        final_flux_totals = {}
+        for flux in final_fluxes:
+            final_flux_totals[flux] = round(global_totals.get(flux, 0) / 1000, 2)
+        
         stats = {
             'dechetteries': dechetteries_data,
             'global_totals': global_totals,
             'category_columns': category_columns,
             'final_fluxes': final_fluxes,
+            'final_fluxes_totals': final_flux_totals,
             'months_order': date_order,
             'num_dechetteries': len(dechetteries_data),
             'num_months': len(date_order),
@@ -368,7 +356,8 @@ def build_stats_from_dump_db(year=2025):
                 'total_apres_mapping_tonnes': round(total_apres_mapping, 2),
                 'total_autres_tonnes': round(total_autres, 2),
                 'total_final_calcule_tonnes': round(total_final_calcule, 2),
-                'total_dechets_ultimes_tonnes': round(ultimes_df['poids'].sum() / 1000, 2) if not ultimes_df.empty else 0
+                'total_dechets_ultimes_tonnes': round(global_totals.get('DECHETS ULTIMES', 0) / 1000, 2),
+                'final_fluxes_breakdown': final_flux_totals
             }
         }
 

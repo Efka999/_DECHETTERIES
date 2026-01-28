@@ -11,6 +11,7 @@ import { useStatistics } from '../hooks/useStatistics';
 import { getDumpAvailableYears, getDumpStatus } from '../services/api';
 import GlobalOverview from '../components/statistics/sections/GlobalOverview';
 import DechetterieDetail from '../components/statistics/sections/DechetterieDetail';
+import FinalFluxesPanel from '../components/statistics/FinalFluxesPanel';
 import { normalizeName } from '../utils/statistics';
 
 const Statistics = ({ outputFilename, onBack }) => {
@@ -85,10 +86,10 @@ const Statistics = ({ outputFilename, onBack }) => {
     [stats]
   );
 
-  const selectedDechetterie = selectedKey === 'global' ? null : selectedKey;
+  const selectedDechetterie = selectedKey === 'global' ? null : selectedKey === 'final-fluxes' ? null : selectedKey;
   
   const resolveSelection = (key) => {
-    if (key === 'global') return 'global';
+    if (key === 'global' || key === 'final-fluxes') return key;
     const match = availableDechetteries.find(
       (name) => normalizeName(name) === normalizeName(key)
     );
@@ -99,7 +100,7 @@ const Statistics = ({ outputFilename, onBack }) => {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <GlobalHeader />
-        <div className="max-w-full mx-auto p-3 md:p-4">
+        <div className="max-w-full mx-auto p-4 md:p-6 px-4 md:px-6">
           <Card>
             <CardContent className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-brand" />
@@ -124,8 +125,8 @@ const Statistics = ({ outputFilename, onBack }) => {
           onSelect={(key) => setSelectedKey(resolveSelection(key))}
           availableDechetteries={availableDechetteries}
         />
-        <SidebarInset className="p-2 md:p-3">
-          <div className="w-full mx-auto space-y-6">
+        <SidebarInset className="p-4 md:p-6">
+          <div className="w-full mx-auto space-y-6 px-2 md:px-4">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold">Statistiques</h1>
@@ -168,6 +169,8 @@ const Statistics = ({ outputFilename, onBack }) => {
                   </Alert>
                 </CardContent>
               </Card>
+            ) : selectedKey === 'final-fluxes' ? (
+              <FinalFluxesPanel stats={stats} />
             ) : selectedDechetterie ? (
               <DechetterieDetail
                 stats={stats}

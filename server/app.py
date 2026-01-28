@@ -20,9 +20,11 @@ def create_app():
     # Configuration du logging
     import logging
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,  # CHANGED TO DEBUG
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+    logger = logging.getLogger(__name__)
+    logger.info("[APP] Starting create_app()")
     
     # Configuration
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB max
@@ -58,10 +60,14 @@ def create_app():
     CORS(app, origins=allowed_origins)
     
     # Initialiser la base de données dump (création des tables si nécessaire)
+    logger.info("[APP] Initializing dump DB...")
     init_dump_db(2025)
+    logger.info("[APP] Dump DB initialized")
 
     # Enregistrer les blueprints
+    logger.info("[APP] Registering blueprints...")
     app.register_blueprint(db_bp, url_prefix='/api')
+    logger.info("[APP] Blueprints registered")
     
     # Route de base
     @app.route('/')
@@ -79,6 +85,15 @@ def create_app():
                 'dump_years': '/api/db/dump/years (GET)'
             }
         })
+    
+    # Status endpoint
+    @app.route('/api/status', methods=['GET'])
+    def api_status():
+        return jsonify({
+            'success': True,
+            'status': 'online',
+            'message': 'Backend API is running'
+        }), 200
     
     # Gestion des erreurs
     @app.errorhandler(404)

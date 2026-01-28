@@ -356,8 +356,8 @@ const RawData = () => {
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset className="p-2 md:p-3">
-          <div className="w-full mx-auto space-y-6">
+        <SidebarInset className="p-4 md:p-6">
+          <div className="w-full mx-auto space-y-6 px-2 md:px-4">
             <div className="flex flex-col gap-2">
               <h1 className="text-3xl md:text-4xl font-bold">Données brutes</h1>
               <p className="text-muted-foreground">

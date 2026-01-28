@@ -6,11 +6,14 @@ Outil de transformation des données déchetteries en format de présentation cl
 
 ```
 _DECHETTERIES/
-├── scripts/                    # OUTILS EXISTANTS (CLI et GUI tkinter)
-│   ├── transform_collectes.py       # Script principal (utilisé par l'API)
-│   ├── transform_t1_collectes.py    # Script standalone T1
-│   ├── transform_t2_collectes.py    # Script standalone T2
-│   ├── gui_app.py                    # Interface graphique tkinter
+├── scripts/                    # OUTILS DÉVELOPPEMENT ET UTILITAIRES
+│   ├── mappings.py                   # Mappages centralisés (lieu/catégories)
+│   ├── synthesize_dump.py            # Génère un fichier Excel synthétisé
+│   ├── gui_app.py                    # Interface graphique tkinter (legacy)
+│   ├── check_dates.py                # Vérification des dates (dev)
+│   ├── read_xlsx.py                  # Inspection de fichiers Excel (dev)
+│   ├── compare_calculations.py       # Diagnostic des calculs (dev)
+│   ├── compare_with_dump_total.py    # Comparaison totaux (dev)
 │   └── build/                        # Fichiers de compilation
 │       ├── build_exe.bat             # Script de compilation Windows
 │       ├── build_exe.spec            # Configuration PyInstaller

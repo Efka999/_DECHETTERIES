@@ -10,7 +10,6 @@ import StatsTable, { MultiColumnStatsTable } from '../StatsTable';
 import MonthlyLineChart from '../MonthlyLineChart';
 import MultiLineChart from '../MultiLineChart';
 import FluxCalendarHeatmap from '../FluxCalendarHeatmap';
-import AdvancedStatsPanel from '../AdvancedStatsPanel';
 import DoubleDonutChart from '../DoubleDonutChart';
 import {
   buildCategoryColorMap,
@@ -417,21 +416,6 @@ const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
                   />
                 ))}
               </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Section Statistiques avancées */}
-        <AccordionItem value="advanced">
-          <AccordionTrigger className="text-lg font-semibold">
-            <div className="flex items-center gap-2">
-              <LineChartIcon className="h-5 w-5" />
-              <span>Statistiques avancées</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4 pt-2">
-              <AdvancedStatsPanel year={selectedYear || datasetYear} />
             </div>
           </AccordionContent>
         </AccordionItem>

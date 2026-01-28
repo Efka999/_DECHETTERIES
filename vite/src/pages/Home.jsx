@@ -11,7 +11,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <GlobalHeader />
-      <div className="max-w-6xl mx-auto h-[calc(100vh-64px)] flex flex-col p-4 md:p-8">
+      <div className="max-w-full mx-auto h-[calc(100vh-64px)] flex flex-col p-3 md:p-4">
         <header className="text-center mb-10">
           <div className="mb-2 flex justify-center">
             <img
@@ -26,7 +26,7 @@ function Home() {
           </p>
         </header>
 
-        <main className="grid gap-6 md:grid-cols-3 max-w-6xl w-full mx-auto items-stretch flex-1">
+        <main className="grid gap-6 md:grid-cols-3 w-full mx-auto items-stretch flex-1">
           <Card className="flex h-full flex-col">
             <CardHeader className="space-y-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand/10 text-brand">
@@ -34,7 +34,7 @@ function Home() {
               </div>
               <CardTitle>Import</CardTitle>
               <CardDescription>
-                Ingérez les fichiers Excel du dossier input, ou transformez un fichier uploadé.
+                Importez les fichiers de dump dans la base de données.
               </CardDescription>
             </CardHeader>
             <CardContent className="mt-auto w-fit">
@@ -85,7 +85,7 @@ function Home() {
           </Card>
         </main>
 
-        <section className="mt-8 max-w-6xl mx-auto w-full">
+        <section className="mt-8 w-full mx-auto">
           <Card>
             <CardHeader className="space-y-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand/10 text-brand">

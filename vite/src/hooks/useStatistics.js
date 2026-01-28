@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getStats } from '../services/api';
-import { combineStats, inferYearFromFilename } from '../utils/statistics';
+import { getDumpStats } from '../services/api';
 
 export const useStatistics = (outputFilename, year = null) => {
   const [stats, setStats] = useState(null);
@@ -11,11 +10,18 @@ export const useStatistics = (outputFilename, year = null) => {
     setLoading(true);
     setError(null);
     try {
-      // DB-backed stats only
+      // Utiliser uniquement le dump
       let dbResult = null;
       try {
-        dbResult = await getStats(null, year);
-        if (dbResult && dbResult.success) {
+        dbResult = await getDumpStats(year || 2025);
+        if (dbResult && dbResult.success && dbResult.stats) {
+          // Vérification supplémentaire : s'assurer que global_totals existe
+          if (!dbResult.stats.global_totals) {
+            console.error('[useStatistics] Missing global_totals in stats:', dbResult.stats);
+            setError('Format de données invalide : global_totals manquant');
+            setStats(null);
+            return;
+          }
           setStats(dbResult.stats);
           return;
         }
@@ -42,7 +48,7 @@ export const useStatistics = (outputFilename, year = null) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outputFilename, year]);
 
-  const datasetYear = stats?.dataset_year || inferYearFromFilename(outputFilename);
+  const datasetYear = stats?.dataset_year || year;
 
   return { stats, loading, error, loadStats, datasetYear };
 };

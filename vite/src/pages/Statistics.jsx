@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 import SidebarNavigation from '../components/Sidebar';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '../components/ui/sidebar';
 import { useStatistics } from '../hooks/useStatistics';
-import { getAvailableYears, getDbStatus } from '../services/api';
+import { getDumpAvailableYears, getDumpStatus } from '../services/api';
 import GlobalOverview from '../components/statistics/sections/GlobalOverview';
 import DechetterieDetail from '../components/statistics/sections/DechetterieDetail';
 import { normalizeName } from '../utils/statistics';
@@ -34,19 +34,19 @@ const Statistics = ({ outputFilename, onBack }) => {
   useEffect(() => {
     const loadYears = async () => {
       try {
-        const result = await getAvailableYears();
+        const result = await getDumpAvailableYears();
         if (result?.success) {
           const years = result.years || [];
           setAvailableYears(years);
 
           if (!selectedYear) {
             const currentYear = new Date().getFullYear();
-            const latest = result.latest || (years.length > 0 ? years[years.length - 1] : null);
+            const latest = years.length > 0 ? years[years.length - 1] : null;
             let nextYear = latest || currentYear;
 
             if (years.includes(currentYear)) {
               try {
-                const status = await getDbStatus(currentYear);
+                const status = await getDumpStatus(currentYear);
                 if (!status?.success || !status?.rows) {
                   nextYear = currentYear - 1;
                 } else {
@@ -99,7 +99,7 @@ const Statistics = ({ outputFilename, onBack }) => {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <GlobalHeader />
-        <div className="max-w-6xl mx-auto p-4 md:p-8">
+        <div className="max-w-full mx-auto p-3 md:p-4">
           <Card>
             <CardContent className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-brand" />
@@ -124,12 +124,12 @@ const Statistics = ({ outputFilename, onBack }) => {
           onSelect={(key) => setSelectedKey(resolveSelection(key))}
           availableDechetteries={availableDechetteries}
         />
-        <SidebarInset className="p-3 md:p-4">
-          <div className="w-full max-w-6xl mx-auto space-y-6">
+        <SidebarInset className="p-2 md:p-3">
+          <div className="w-full mx-auto space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold">Statistiques des Collectes</h1>
-                <p className="text-muted-foreground">Gestion des recycleries · analyses par déchetterie</p>
+                <h1 className="text-3xl md:text-4xl font-bold">Statistiques</h1>
+                <p className="text-muted-foreground">Analyses par déchetterie · données du dump</p>
               </div>
               <div className="flex items-center gap-2">
                 {availableYears.length > 0 && (
@@ -157,6 +157,14 @@ const Statistics = ({ outputFilename, onBack }) => {
                 <CardContent className="py-8">
                   <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
+            ) : !stats ? (
+              <Card>
+                <CardContent className="py-8">
+                  <Alert variant="destructive">
+                    <AlertDescription>Aucune statistique disponible.</AlertDescription>
                   </Alert>
                 </CardContent>
               </Card>

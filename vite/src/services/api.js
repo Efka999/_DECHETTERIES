@@ -25,88 +25,22 @@ export const checkStatus = async () => {
   }
 };
 
-/**
- * Transforme un fichier Excel
- * @param {File} file - Fichier Excel à transformer
- * @returns {Promise} Résultat de la transformation
- */
-export const transformFile = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
+// ============================================================================
+// Dump API functions
+// ============================================================================
 
+export const importDumpFile = async (filePath, year = 2025, force = false) => {
   try {
-    const response = await api.post('/transform', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        // Peut être utilisé pour afficher la progression
-        const percentCompleted = Math.round(
-          (progressEvent.loaded * 100) / progressEvent.total
-        );
-        console.log(`Upload: ${percentCompleted}%`);
-      },
+    const response = await api.post('/db/dump/import', {
+      file_path: filePath,
+      force: force
+    }, {
+      params: { year }
     });
-
     return response.data;
   } catch (error) {
     if (error.response) {
-      // Le serveur a répondu avec un code d'erreur
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la transformation');
-    } else if (error.request) {
-      // La requête a été faite mais aucune réponse n'a été reçue
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      // Erreur lors de la configuration de la requête
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-/**
- * Télécharge le fichier généré
- * @param {string} filename - Nom du fichier à télécharger
- * @param {string} filePath - Chemin complet du fichier (optionnel, pour recherche)
- */
-export const downloadFile = (filename, filePath = null) => {
-  // Extraire juste le nom du fichier pour l'URL
-  const fileToDownload = filename.includes('/') 
-    ? filename.split('/').pop() 
-    : filename;
-  
-  // L'API cherche dans output/, donc on passe juste le nom du fichier
-  const url = `${API_URL}/api/download/${encodeURIComponent(fileToDownload)}`;
-  
-  // Créer un lien temporaire pour forcer le téléchargement
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileToDownload;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-/**
- * Récupère les statistiques du fichier Excel de sortie
- * @param {string} filename - Nom du fichier (peut contenir le chemin)
- * @returns {Promise} Statistiques du fichier
- */
-export const getStats = async (filename = null, year = null) => {
-  try {
-    const url = filename
-      ? `/stats/${encodeURIComponent(filename)}`
-      : '/stats';
-    const response = await api.get(url, { params: year ? { year } : undefined });
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      const errorData = error.response.data;
-      const errorMsg = errorData.error || errorData.message || 'Erreur lors de la récupération des statistiques';
-      // Si des fichiers sont disponibles, les inclure dans le message
-      if (errorData.available_files && errorData.available_files.length > 0) {
-        throw new Error(`${errorMsg}. Fichiers disponibles: ${errorData.available_files.join(', ')}`);
-      }
-      throw new Error(errorMsg);
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de l\'import du dump');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {
@@ -115,141 +49,49 @@ export const getStats = async (filename = null, year = null) => {
   }
 };
 
-/**
- * Génère le fichier annuel combiné T1+T2
- * @param {number} year - Année pour le fichier de sortie (défaut: 2025)
- * @returns {Promise} Résultat de la génération
- */
-export const generateAnnualFile = async (year = 2025) => {
+export const getDumpStatus = async (year = 2025) => {
   try {
-    const response = await api.post('/transform/annual', { year });
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la génération du fichier annuel');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-export const getInputFiles = async () => {
-  try {
-    const response = await api.get('/files/input');
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des fichiers input');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-export const getOutputFiles = async () => {
-  try {
-    const response = await api.get('/files/output');
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des fichiers output');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-/**
- * Ingestion des fichiers Excel du dossier input/ dans la base
- * @param {boolean} force - Réimporter même si déjà ingéré
- */
-export const importRawData = async (force = false, year = null, rebuild = true) => {
-  try {
-    const response = await api.post(
-      '/db/import',
-      { force, rebuild, year },
-      { params: year ? { year } : undefined }
-    );
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de l\'ingestion');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-export const startImportJob = async (force = false, year = null, rebuild = true) => {
-  try {
-    const response = await api.post(
-      '/db/import-jobs',
-      { force, rebuild, year },
-      { params: year ? { year } : undefined }
-    );
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du lancement de l\'import');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-export const getImportJob = async (jobId, since = 0) => {
-  try {
-    const response = await api.get(`/db/import-jobs/${jobId}`, { params: { since } });
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la lecture du journal');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-/**
- * Statut de la base de données
- */
-export const getDbStatus = async (year = null) => {
-  try {
-    const response = await api.get('/db/status', { params: year ? { year } : undefined });
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du statut DB');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-/**
- * Récupère les données brutes depuis la base
- * @param {number} limit - Nombre de lignes
- * @param {number} offset - Décalage
- */
-export const getRawData = async (limit = 50, offset = 0, year = null, filters = {}) => {
-  try {
-    const response = await api.get('/db/raw', {
-      params: { limit, offset, ...(year ? { year } : {}), ...(filters || {}) }
+    const response = await api.get('/db/dump/status', {
+      params: { year }
     });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement du statut');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getDumpStats = async (year = 2025) => {
+  try {
+    const response = await api.get('/db/dump/stats', {
+      params: { year }
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des statistiques');
+    } else if (error.request) {
+      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
+    } else {
+      throw new Error(error.message || 'Erreur inconnue');
+    }
+  }
+};
+
+export const getDumpRawData = async (limit = 50, offset = 0, year = 2025, filters = {}) => {
+  try {
+    const params = {
+      limit,
+      offset,
+      year,
+      ...filters
+    };
+    const response = await api.get('/db/dump/raw', { params });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -262,9 +104,11 @@ export const getRawData = async (limit = 50, offset = 0, year = null, filters = 
   }
 };
 
-export const getRawOptions = async (year = null) => {
+export const getDumpRawDataOptions = async (year = 2025) => {
   try {
-    const response = await api.get('/db/raw/options', { params: year ? { year } : undefined });
+    const response = await api.get('/db/dump/raw/options', {
+      params: { year }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -277,30 +121,15 @@ export const getRawOptions = async (year = null) => {
   }
 };
 
-export const rebuildAggregates = async (year = null) => {
+export const getDumpTimeSeries = async (granularity = 'day', year = 2025) => {
   try {
-    const response = await api.post('/db/rebuild-aggregates', null, { params: year ? { year } : undefined });
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors de la reconstruction');
-    } else if (error.request) {
-      throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
-    } else {
-      throw new Error(error.message || 'Erreur inconnue');
-    }
-  }
-};
-
-export const getAdvancedSeries = async (granularity = 'day', year = null) => {
-  try {
-    const response = await api.get('/stats/advanced/series', {
-      params: { granularity, ...(year ? { year } : {}) }
+    const response = await api.get('/db/dump/stats/advanced/series', {
+      params: { granularity, year }
     });
     return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des séries');
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des séries temporelles');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {
@@ -309,13 +138,15 @@ export const getAdvancedSeries = async (granularity = 'day', year = null) => {
   }
 };
 
-export const getAdvancedCategory = async (year = null) => {
+export const getDumpCategoryStats = async (year = 2025) => {
   try {
-    const response = await api.get('/stats/advanced/category', { params: year ? { year } : undefined });
+    const response = await api.get('/db/dump/stats/advanced/category', {
+      params: { year }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des catégories');
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des stats par catégorie');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {
@@ -324,13 +155,15 @@ export const getAdvancedCategory = async (year = null) => {
   }
 };
 
-export const getAdvancedFluxOrientation = async (year = null) => {
+export const getDumpFluxOrientationMatrix = async (year = 2025) => {
   try {
-    const response = await api.get('/stats/advanced/flux-orientation', { params: year ? { year } : undefined });
+    const response = await api.get('/db/dump/stats/advanced/flux-orientation', {
+      params: { year }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement des flux');
+      throw new Error(error.response.data.error || error.response.data.message || 'Erreur lors du chargement de la matrice flux/orientation');
     } else if (error.request) {
       throw new Error('Le serveur ne répond pas. Vérifiez qu\'il est démarré.');
     } else {
@@ -339,10 +172,10 @@ export const getAdvancedFluxOrientation = async (year = null) => {
   }
 };
 
-export const getAdvancedAnomalies = async (limit = 10, year = null) => {
+export const getDumpAnomalies = async (limit = 10, year = 2025) => {
   try {
-    const response = await api.get('/stats/advanced/anomalies', {
-      params: { limit, ...(year ? { year } : {}) }
+    const response = await api.get('/db/dump/stats/advanced/anomalies', {
+      params: { limit, year }
     });
     return response.data;
   } catch (error) {
@@ -356,9 +189,11 @@ export const getAdvancedAnomalies = async (limit = 10, year = null) => {
   }
 };
 
-export const getAdvancedMissingDays = async (year = null) => {
+export const getDumpMissingDays = async (year = 2025) => {
   try {
-    const response = await api.get('/stats/advanced/missing-days', { params: year ? { year } : undefined });
+    const response = await api.get('/db/dump/stats/advanced/missing-days', {
+      params: { year }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -371,9 +206,11 @@ export const getAdvancedMissingDays = async (year = null) => {
   }
 };
 
-export const getAdvancedComparison = async (year = null) => {
+export const getDumpComparison = async (year = 2025) => {
   try {
-    const response = await api.get('/stats/advanced/comparison', { params: year ? { year } : undefined });
+    const response = await api.get('/db/dump/stats/advanced/comparison', {
+      params: { year }
+    });
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -386,9 +223,9 @@ export const getAdvancedComparison = async (year = null) => {
   }
 };
 
-export const getAvailableYears = async () => {
+export const getDumpAvailableYears = async () => {
   try {
-    const response = await api.get('/db/years');
+    const response = await api.get('/db/dump/years');
     return response.data;
   } catch (error) {
     if (error.response) {

@@ -10,9 +10,8 @@ import sys
 # Ajouter le chemin pour les imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from api.transform import api_bp
 from api.db import db_bp
-from services.db import init_db
+from services.db import init_dump_db
 
 def create_app():
     """Crée et configure l'application Flask"""
@@ -58,11 +57,10 @@ def create_app():
     
     CORS(app, origins=allowed_origins)
     
-    # Initialiser la base de données (création des tables si nécessaire)
-    init_db()
+    # Initialiser la base de données dump (création des tables si nécessaire)
+    init_dump_db(2025)
 
     # Enregistrer les blueprints
-    app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(db_bp, url_prefix='/api')
     
     # Route de base
@@ -74,11 +72,11 @@ def create_app():
             'status': 'running',
             'endpoints': {
                 'status': '/api/status',
-                'transform': '/api/transform (POST)',
-                'download': '/api/download/<filename> (GET)',
-                'db_import': '/api/db/import (POST)',
-                'db_status': '/api/db/status (GET)',
-                'stats_db': '/api/stats (GET)'
+                'dump_import': '/api/db/dump/import (POST)',
+                'dump_status': '/api/db/dump/status (GET)',
+                'dump_stats': '/api/db/dump/stats (GET)',
+                'dump_raw': '/api/db/dump/raw (GET)',
+                'dump_years': '/api/db/dump/years (GET)'
             }
         })
     
@@ -149,11 +147,11 @@ if __name__ == '__main__':
     print(f"  HTTPS: {use_https}")
     print(f"  Endpoints disponibles:")
     print(f"    - GET  /api/status")
-    print(f"    - POST /api/transform")
-    print(f"    - GET  /api/download/<filename>")
-    print(f"    - POST /api/db/import")
-    print(f"    - GET  /api/db/status")
-    print(f"    - GET  /api/stats")
+    print(f"    - POST /api/db/dump/import")
+    print(f"    - GET  /api/db/dump/status")
+    print(f"    - GET  /api/db/dump/stats")
+    print(f"    - GET  /api/db/dump/raw")
+    print(f"    - GET  /api/db/dump/years")
     print(f"=" * 70)
     
     app.run(

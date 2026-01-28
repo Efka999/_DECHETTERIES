@@ -1,16 +1,17 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../ui/accordion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
-import { Table, BarChart3, LineChart as LineChartIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '../../ui/alert';
+import { Table, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { getDumpCategoryStats } from '../../../services/api';
 import OverviewCards from '../OverviewCards';
 import StatsTable, { MultiColumnStatsTable } from '../StatsTable';
-import CategoryBarChart from '../CategoryBarChart';
-import DechetterieBarChart from '../DechetterieBarChart';
 import MonthlyLineChart from '../MonthlyLineChart';
 import MultiLineChart from '../MultiLineChart';
 import FluxCalendarHeatmap from '../FluxCalendarHeatmap';
 import AdvancedStatsPanel from '../AdvancedStatsPanel';
+import DoubleDonutChart from '../DoubleDonutChart';
 import {
   buildCategoryColorMap,
   buildFinalFluxColorMap,
@@ -23,10 +24,47 @@ import {
 } from '../../../utils/statistics';
 
 const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
+  const [categoryStats, setCategoryStats] = useState([]);
+  const [loadingCategoryStats, setLoadingCategoryStats] = useState(true);
+
+  useEffect(() => {
+    const loadCategoryStats = async () => {
+      try {
+        setLoadingCategoryStats(true);
+        const result = await getDumpCategoryStats(selectedYear || datasetYear || 2025);
+        if (result?.success && result.data) {
+          setCategoryStats(result.data);
+        }
+      } catch (error) {
+        // Ignore errors
+      } finally {
+        setLoadingCategoryStats(false);
+      }
+    };
+    loadCategoryStats();
+  }, [selectedYear, datasetYear]);
+
+  // Vérification de sécurité
+  if (!stats || !stats.global_totals) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Les statistiques ne sont pas disponibles ou sont dans un format incorrect.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const finalFluxes = useMemo(
-    () => stats.final_fluxes || ['MASSICOT', 'DEMANTELEMENT', 'DECHETS ULTIMES'],
+    () => stats.final_fluxes || ['DECHETS ULTIMES'],
     [stats.final_fluxes]
   );
+  // MASSICOT et DEMANTELEMENT sont maintenant dans category_columns, donc inclus dans les catégories
+  // Seul DECHETS ULTIMES reste un flux final séparé
   const categories = useMemo(() => {
     const cols = stats.category_columns || [];
     return cols.filter((col) => !finalFluxes.includes(col));
@@ -47,14 +85,6 @@ const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
     name: flux,
     value: stats.global_totals[flux] || 0,
   }));
-
-  const dechetterieTotals = Object.entries(stats.dechetteries)
-    .map(([name, data]) => ({
-      name: name.length > 12 ? `${name.slice(0, 12)}…` : name,
-      fullName: name,
-      total: data.total?.TOTAL || 0,
-    }))
-    .sort((a, b) => b.total - a.total);
 
   const monthlyData = buildGlobalMonthlyData(stats);
   const smoothedMonthlyData = useMemo(
@@ -79,14 +109,6 @@ const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
       return entry;
     });
     
-    console.log('monthlyFluxData sample (first 3 months):', data.slice(0, 3));
-    console.log('Sample dechetterie months data:', stats.dechetteries ? 
-      Object.keys(stats.dechetteries)[0] ? 
-        Object.entries(stats.dechetteries[Object.keys(stats.dechetteries)[0]].months || {}).slice(0, 6) : 
-        null : 
-      null
-    );
-    
     return data;
   }, [stats.months_order, stats.dechetteries, categories]);
 
@@ -107,8 +129,6 @@ const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
       });
       return entry;
     });
-    
-    console.log('finalMonthlyData sample (first 3 months):', data.slice(0, 3));
     
     return data;
   }, [stats.months_order, stats.dechetteries, finalFluxes]);
@@ -164,21 +184,83 @@ const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <StatsTable
-                  title="Totaux par flux"
-                  description={`Tableau global (kg) • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
-                  data={categoryTotalsData}
-                  totalValue={stats.global_totals.TOTAL}
-                />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Totaux par flux</CardTitle>
+                  <CardDescription className="text-xs">
+                    Tableau global (kg) • Grand total inclut toutes les catégories + flux finaux • {datasetYearLabel}{explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Sous-tableau 1: Flux recyclage */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 text-green-700">Flux mis en valeur (recyclage)</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left px-2 py-1 text-[11px] font-semibold whitespace-nowrap">Flux</th>
+                              <th className="text-right px-2 py-1 text-[11px] font-semibold whitespace-nowrap">Total (kg)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {categoryTotalsData.map((item) => (
+                              <tr key={item.name} className="border-b">
+                                <td className="px-2 py-1">{item.name}</td>
+                                <td className="px-2 py-1 text-right">{formatKg(item.value)}</td>
+                              </tr>
+                            ))}
+                            <tr className="border-t-2 font-bold">
+                              <td className="px-2 py-1">Sous-total recyclage</td>
+                              <td className="px-2 py-1 text-right">
+                                {formatKg(categoryTotalsData.reduce((sum, item) => sum + (item.value || 0), 0))}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
 
-                <StatsTable
-                  title="Flux finaux (tableau)"
-                  description={`Totaux globaux · kg • ${datasetYearLabel}${explicitRangeLabel ? ` • ${explicitRangeLabel}` : ''}`}
-                  data={finalTotalsData}
-                  totalValue={finalTotalsData.reduce((sum, item) => sum + item.value, 0)}
-                />
-              </div>
+                    {/* Sous-tableau 2: Flux finaux */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 text-orange-700">Flux finaux</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left px-2 py-1 text-[11px] font-semibold whitespace-nowrap">Flux</th>
+                              <th className="text-right px-2 py-1 text-[11px] font-semibold whitespace-nowrap">Total (kg)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {finalTotalsData.map((item) => (
+                              <tr key={item.name} className="border-b">
+                                <td className="px-2 py-1">{item.name}</td>
+                                <td className="px-2 py-1 text-right">{formatKg(item.value)}</td>
+                              </tr>
+                            ))}
+                            <tr className="border-t-2 font-bold">
+                              <td className="px-2 py-1">Sous-total flux finaux</td>
+                              <td className="px-2 py-1 text-right">
+                                {formatKg(finalTotalsData.reduce((sum, item) => sum + (item.value || 0), 0))}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Grand total */}
+                    <div className="border-t-2 pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-base font-bold">GRAND TOTAL</span>
+                        <span className="text-base font-bold">{formatKg(stats.global_totals.TOTAL)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               <MultiColumnStatsTable
                 title="Détails par déchetterie"
@@ -210,19 +292,14 @@ const GlobalOverview = ({ stats, datasetYear, selectedYear }) => {
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <CategoryBarChart
-                  title="Totaux par flux"
-                  description="Toutes déchetteries (kg)"
-                  data={categoryTotalsData}
+              {!loadingCategoryStats && categoryStats.length > 0 && (
+                <DoubleDonutChart
+                  title="Répartition par catégorie et sous-catégorie"
+                  description={`Flux par catégorie (extérieur) et sous-catégorie (intérieur) • ${datasetYearLabel}`}
+                  data={categoryStats}
+                  height={600}
                 />
-
-                <DechetterieBarChart
-                  title="Totaux par déchetterie"
-                  description="Comparaison globale (kg)"
-                  data={dechetterieTotals}
-                />
-              </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>

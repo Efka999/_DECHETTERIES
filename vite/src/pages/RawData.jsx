@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getAvailableYears, getDbStatus, getRawData, getRawOptions } from '../services/api';
+import { getDumpAvailableYears, getDumpStatus, getDumpRawData, getDumpRawDataOptions } from '../services/api';
 import { formatExactDate } from '../utils/statistics';
 import { Input } from '../components/ui/input';
 import {
@@ -71,7 +71,7 @@ const RawData = () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getRawData(pageSize, offset, selectedYear, appliedFilters);
+      const result = await getDumpRawData(pageSize, offset, selectedYear, appliedFilters);
       if (result && result.success) {
         setItems(result.items || []);
         setTotal(result.total || 0);
@@ -93,19 +93,19 @@ const RawData = () => {
   useEffect(() => {
     const loadYears = async () => {
       try {
-        const result = await getAvailableYears();
+        const result = await getDumpAvailableYears();
         if (result?.success) {
           const years = result.years || [];
           setAvailableYears(years);
 
           if (!selectedYear) {
             const currentYear = new Date().getFullYear();
-            const latest = result.latest || (years.length > 0 ? years[years.length - 1] : null);
+            const latest = years.length > 0 ? years[years.length - 1] : null;
             let nextYear = latest || currentYear;
 
             if (years.includes(currentYear)) {
               try {
-                const status = await getDbStatus(currentYear);
+                const status = await getDumpStatus(currentYear);
                 if (!status?.success || !status?.rows) {
                   nextYear = currentYear - 1;
                 } else {
@@ -131,7 +131,7 @@ const RawData = () => {
     if (!selectedYear) return;
     const loadOptions = async () => {
       try {
-        const result = await getRawOptions(selectedYear);
+        const result = await getDumpRawDataOptions(selectedYear);
         if (result?.success) {
           setFilterOptions(result.options || {});
         }
@@ -297,7 +297,7 @@ const RawData = () => {
                     list="raw-source-file"
                     value={filters.source_file}
                     onChange={(event) => setFilters((prev) => ({ ...prev, source_file: event.target.value }))}
-                    placeholder="Ex: T1 25 Analyse"
+                    placeholder="Rechercher dans les données..."
                   />
                   <datalist id="raw-source-file">
                     {(filterOptions.source_file || []).map((value) => (
@@ -356,8 +356,8 @@ const RawData = () => {
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset className="p-3 md:p-4">
-          <div className="w-full max-w-6xl mx-auto space-y-6">
+        <SidebarInset className="p-2 md:p-3">
+          <div className="w-full mx-auto space-y-6">
             <div className="flex flex-col gap-2">
               <h1 className="text-3xl md:text-4xl font-bold">Données brutes</h1>
               <p className="text-muted-foreground">
@@ -434,7 +434,7 @@ const RawData = () => {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 md:p-4">
                 {loading ? (
                   <div className="flex items-center justify-center py-10 text-muted-foreground">
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />

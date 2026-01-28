@@ -11,7 +11,7 @@ function NotFound() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <GlobalHeader />
-      <div className="max-w-6xl mx-auto min-h-[calc(100vh-2rem)] flex flex-col p-4 md:p-8">
+      <div className="max-w-full mx-auto min-h-[calc(100vh-2rem)] flex flex-col p-3 md:p-4">
         <main className="flex-1 flex items-center justify-center">
           <Card className="w-full max-w-md text-center">
             <CardHeader>

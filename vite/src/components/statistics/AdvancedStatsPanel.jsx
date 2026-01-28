@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Loader2 } from 'lucide-react';
 import {
-  getAdvancedSeries,
-  getAdvancedCategory,
-  getAdvancedFluxOrientation,
-  getAdvancedAnomalies,
-  getAdvancedMissingDays,
-  getAdvancedComparison
+  getDumpTimeSeries,
+  getDumpCategoryStats,
+  getDumpFluxOrientationMatrix,
+  getDumpAnomalies,
+  getDumpMissingDays,
+  getDumpComparison
 } from '../../services/api';
 import MonthlyLineChart from './MonthlyLineChart';
 import { formatKg, formatExactDate } from '../../utils/statistics';
@@ -27,12 +27,12 @@ const AdvancedStatsPanel = ({ year }) => {
     setLoading(true);
     try {
       const [seriesRes, catRes, fluxRes, anomaliesRes, missingRes, compRes] = await Promise.all([
-        getAdvancedSeries(granularity, year),
-        getAdvancedCategory(year),
-        getAdvancedFluxOrientation(year),
-        getAdvancedAnomalies(10, year),
-        getAdvancedMissingDays(year),
-        getAdvancedComparison(year)
+        getDumpTimeSeries(granularity, year),
+        getDumpCategoryStats(year),
+        getDumpFluxOrientationMatrix(year),
+        getDumpAnomalies(10, year),
+        getDumpMissingDays(year),
+        getDumpComparison(year)
       ]);
       setSeries(seriesRes.data || []);
       setCategoryStats(catRes.data || []);

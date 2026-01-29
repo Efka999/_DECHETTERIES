@@ -164,7 +164,7 @@ def synthesize_dump(output_file, year=2025):
     # Standard columns (same as transform_collectes.py)
     category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
                        'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
-                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7','MERCERIE', 'TEXTILE']
+                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7','MERCERIE', 'TEXTILE','LABEL']
     
     month_order = ['JANVIER', 'FEVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN',
                    'JUILLET', 'AOUT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DECEMBRE']
@@ -801,7 +801,7 @@ def _apply_formatting_to_combined_file(output_file, num_dechetteries, num_months
     # Category columns order
     category_columns = ['MEUBLES', 'ELECTRO', 'DEMANTELEMENT', 'CHINE',
                        'VAISSELLE', 'JOUETS', 'PAPETERIE', 'LIVRES', 'MASSICOT',
-                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'MERCERIE', 'TEXTILE']
+                       'CADRES', 'ASL', 'PUERICULTURE', 'ABJ', 'CD/DVD/K7', 'MERCERIE', 'TEXTILE', 'LABEL']
     
     # Find column indices for DEMANTELEMENT (index 2, column D) and MASSICOT (index 8, column J)
     demantelement_col_idx = 4  # Column D

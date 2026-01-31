@@ -2,7 +2,11 @@
 Endpoints API pour la base SQLite dump (ingestion et stats).
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
+from werkzeug.utils import secure_filename
+import os
+import shutil
+from pathlib import Path
 
 from services.db import get_dump_connection, init_dump_db, get_dump_available_years
 from services.dump_ingest_service import ingest_dump_file
@@ -334,3 +338,152 @@ def dump_years():
         'success': True,
         'years': years
     }), 200
+
+
+# ============================================================================
+# File management endpoints (Input/Output files)
+# ============================================================================
+
+@db_bp.route('/files/output/list', methods=['GET'])
+def list_output_files():
+    """List available output files (Excel reports)."""
+    try:
+        output_dir = Path(__file__).parent.parent.parent / 'output'
+        if not output_dir.exists():
+            return jsonify({
+                'success': True,
+                'files': []
+            }), 200
+        
+        files = []
+        for file in output_dir.glob('*.xlsx'):
+            files.append({
+                'name': file.name,
+                'size': file.stat().st_size,
+                'modified': file.stat().st_mtime
+            })
+        
+        # Sort by modified date, newest first
+        files.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'files': files
+        }), 200
+    except Exception as exc:
+        return jsonify({
+            'success': False,
+            'error': str(exc)
+        }), 500
+
+
+@db_bp.route('/files/output/download/<filename>', methods=['GET'])
+def download_output_file(filename):
+    """Download an output Excel file."""
+    try:
+        # Sanitize filename
+        filename = secure_filename(filename)
+        output_dir = Path(__file__).parent.parent.parent / 'output'
+        file_path = output_dir / filename
+        
+        # Security check
+        if not file_path.exists() or not file_path.is_file():
+            return jsonify({
+                'success': False,
+                'error': 'File not found'
+            }), 404
+        
+        if not str(file_path).startswith(str(output_dir)):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid file path'
+            }), 403
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as exc:
+        return jsonify({
+            'success': False,
+            'error': str(exc)
+        }), 500
+
+
+@db_bp.route('/files/input/upload', methods=['POST'])
+def upload_input_file():
+    """Upload an input Excel file."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No file provided'
+            }), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'Empty filename'
+            }), 400
+        
+        # Only accept Excel files
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({
+                'success': False,
+                'error': 'Only Excel files (.xlsx, .xls) are accepted'
+            }), 400
+        
+        filename = secure_filename(file.filename)
+        input_dir = Path(__file__).parent.parent.parent / 'input'
+        input_dir.mkdir(parents=True, exist_ok=True)
+        
+        file_path = input_dir / filename
+        file.save(str(file_path))
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'size': file_path.stat().st_size
+        }), 200
+    except Exception as exc:
+        return jsonify({
+            'success': False,
+            'error': str(exc)
+        }), 500
+
+
+@db_bp.route('/files/input/list', methods=['GET'])
+def list_input_files():
+    """List available input files."""
+    try:
+        input_dir = Path(__file__).parent.parent.parent / 'input'
+        if not input_dir.exists():
+            return jsonify({
+                'success': True,
+                'files': []
+            }), 200
+        
+        files = []
+        # Get both .xlsx and .xls files
+        for file in list(input_dir.glob('*.xlsx')) + list(input_dir.glob('*.xls')):
+            files.append({
+                'name': file.name,
+                'size': file.stat().st_size,
+                'modified': file.stat().st_mtime
+            })
+        
+        # Sort by modified date, newest first
+        files.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'files': files
+        }), 200
+    except Exception as exc:
+        return jsonify({
+            'success': False,
+            'error': str(exc)
+        }), 500

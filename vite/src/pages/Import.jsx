@@ -8,9 +8,13 @@ import {
   checkStatus,
   importDumpFile,
   getDumpStatus,
-  getDumpAvailableYears
+  getDumpAvailableYears,
+  listOutputFiles,
+  downloadOutputFile,
+  listInputFiles,
+  uploadInputFile
 } from '../services/api';
-import { RefreshCw, Database } from 'lucide-react';
+import { RefreshCw, Database, Download, Upload } from 'lucide-react';
 
 function ImportPage() {
   const [serverStatus, setServerStatus] = useState('checking');
@@ -20,6 +24,14 @@ function ImportPage() {
   const [dumpLoading, setDumpLoading] = useState(false);
   const [dumpMessage, setDumpMessage] = useState(null);
   const [dumpType, setDumpType] = useState('info');
+  
+  // File management states
+  const [outputFiles, setOutputFiles] = useState([]);
+  const [inputFiles, setInputFiles] = useState([]);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileMessage, setFileMessage] = useState(null);
+  const [fileType, setFileType] = useState('info');
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     const verifyServer = async () => {
@@ -68,6 +80,24 @@ function ImportPage() {
     }
   }, [dumpYear, serverStatus]);
 
+  // Load file lists when page loads
+  useEffect(() => {
+    const loadFiles = async () => {
+      if (serverStatus === 'offline') return;
+      try {
+        const output = await listOutputFiles();
+        if (output?.success) setOutputFiles(output.files || []);
+        
+        const input = await listInputFiles();
+        if (input?.success) setInputFiles(input.files || []);
+      } catch (error) {
+        // Ignore errors silently
+      }
+    };
+    
+    loadFiles();
+  }, [serverStatus]);
+
   const handleDumpImport = async (force = false) => {
     setDumpLoading(true);
     setDumpMessage('Import du dump en cours...');
@@ -90,6 +120,47 @@ function ImportPage() {
       setDumpType('error');
     } finally {
       setDumpLoading(false);
+    }
+  };
+
+  const handleDownloadOutputFile = async (filename) => {
+    setFileLoading(true);
+    try {
+      await downloadOutputFile(filename);
+      setFileMessage(`Fichier ${filename} téléchargé avec succès`);
+      setFileType('success');
+    } catch (error) {
+      setFileMessage(error.message || 'Erreur lors du téléchargement');
+      setFileType('error');
+    } finally {
+      setFileLoading(false);
+    }
+  };
+
+  const handleUploadInputFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setFileLoading(true);
+    try {
+      const result = await uploadInputFile(file);
+      if (result?.success) {
+        setFileMessage(`Fichier ${result.filename} uploadé avec succès`);
+        setFileType('success');
+        
+        // Reload file list
+        const input = await listInputFiles();
+        if (input?.success) setInputFiles(input.files || []);
+      } else {
+        throw new Error(result?.error || 'Erreur lors de l\'upload');
+      }
+    } catch (error) {
+      setFileMessage(error.message || 'Erreur lors de l\'upload');
+      setFileType('error');
+    } finally {
+      setFileLoading(false);
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -187,6 +258,96 @@ function ImportPage() {
                   message="Import du dump en cours..."
                   isComplete={false}
                   isError={false}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Fichiers d'Export</CardTitle>
+              <CardDescription>
+                Téléchargez les fichiers Excel générés dans le dossier output.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {outputFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {outputFiles.map((file) => (
+                    <div key={file.name} className="flex items-center justify-between rounded-md border p-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(2)} KB · {new Date(file.modified * 1000).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => handleDownloadOutputFile(file.name)}
+                        disabled={fileLoading || serverStatus === 'offline'}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucun fichier d'export disponible</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Fichiers d'Entrée</CardTitle>
+              <CardDescription>
+                Uploadez des fichiers Excel d'entrée dans le dossier input.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleUploadInputFile}
+                  disabled={fileLoading || serverStatus === 'offline'}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={fileLoading || serverStatus === 'offline'}
+                  variant="outline"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Uploader un fichier
+                </Button>
+              </div>
+
+              {inputFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {inputFiles.map((file) => (
+                    <div key={file.name} className="flex items-center justify-between rounded-md border p-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(2)} KB · {new Date(file.modified * 1000).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucun fichier d'entrée</p>
+              )}
+
+              {fileMessage && (
+                <StatusMessage
+                  type={fileType}
+                  message={fileMessage}
+                  onClose={() => setFileMessage(null)}
                 />
               )}
             </CardContent>

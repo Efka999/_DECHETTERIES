@@ -237,3 +237,79 @@ export const getDumpAvailableYears = async () => {
     }
   }
 };
+
+// ============================================================================
+// File management functions
+// ============================================================================
+
+export const listOutputFiles = async () => {
+  try {
+    const response = await api.get('/files/output/list');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || 'Erreur lors du chargement des fichiers');
+    } else {
+      throw new Error('Erreur lors du chargement des fichiers');
+    }
+  }
+};
+
+export const downloadOutputFile = async (filename) => {
+  try {
+    const response = await api.get(`/files/output/download/${encodeURIComponent(filename)}`, {
+      responseType: 'blob'
+    });
+    
+    // Create a blob URL and trigger download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true, filename };
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || 'Erreur lors du téléchargement');
+    } else {
+      throw new Error('Erreur lors du téléchargement');
+    }
+  }
+};
+
+export const listInputFiles = async () => {
+  try {
+    const response = await api.get('/files/input/list');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || 'Erreur lors du chargement des fichiers');
+    } else {
+      throw new Error('Erreur lors du chargement des fichiers');
+    }
+  }
+};
+
+export const uploadInputFile = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await api.post('/files/input/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.error || 'Erreur lors de l\'upload');
+    } else {
+      throw new Error('Erreur lors de l\'upload');
+    }
+  }
+};
